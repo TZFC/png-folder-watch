@@ -1,0 +1,43 @@
+"""
+GUI smoke tests to ensure Tkinter components initialize and destroy without error.
+"""
+
+import unittest
+import tempfile
+import os
+import shutil
+from src.config import ConfigManager, create_default_rule
+from src.gui import ConfigApp, RuleEditorDialog
+
+
+class TestGUISmoke(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.config_file = os.path.join(self.temp_dir, "test_gui_config.json")
+        self.cm = ConfigManager(self.config_file)
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_gui_init_and_close(self):
+        rule = create_default_rule("C:\\TestFolder")
+        self.cm.add_rule(rule)
+
+        app = ConfigApp(self.cm)
+        app.update()
+        self.assertEqual(len(app.cards_frame.winfo_children()), 1)
+        app.destroy()
+
+    def test_rule_editor_dialog_init_and_cancel(self):
+        app = ConfigApp(self.cm)
+        app.update()
+
+        editor = RuleEditorDialog(app, rule=None)
+        editor.update()
+        editor.destroy()
+        app.destroy()
+
+
+if __name__ == "__main__":
+    unittest.main()

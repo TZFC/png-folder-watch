@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Local runtime & virtualenvs
+runtime/
+.venv/
+env/
+venv/
+ENV/
+
+# User configuration & locks
+config.json
+.write_test
+
+# Test outputs
+*.tmp
+pngwatch_test_*
+pngwatch_live_*
+
+# Distribution & build
+dist/
+build/
+*.egg-info/
