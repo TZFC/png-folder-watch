@@ -68,7 +68,14 @@ class TestConverter(unittest.TestCase):
         with Image.open(rgba_opaque_path) as img:
             self.assertFalse(has_alpha_channel(img))
 
-        # 3. RGBA with actual alpha < 255 has transparency
+        # 3. RGBA with alpha 254 (quantization noise from renderers) is treated as opaque
+        rgba_254_path = os.path.join(self.watch_root, "alpha_254.png")
+        img_254 = Image.new("RGBA", (50, 50), (255, 0, 0, 254))
+        img_254.save(rgba_254_path, "PNG")
+        with Image.open(rgba_254_path) as img:
+            self.assertFalse(has_alpha_channel(img))
+
+        # 4. RGBA with actual alpha < 254 has transparency
         rgba_trans_path = os.path.join(self.watch_root, "trans_rgba.png")
         self._create_test_png(rgba_trans_path, "RGBA", with_transparency=True)
         with Image.open(rgba_trans_path) as img:

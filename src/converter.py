@@ -19,25 +19,31 @@ from .config import (
 )
 
 
-def has_alpha_channel(img: Image.Image) -> bool:
+# Minimum alpha value considered meaningfully transparent (values >= 254 are treated as opaque,
+# filtering out 254 quantization noise common in Unity / VRChat rendering).
+ALPHA_OPAQUE_THRESHOLD = 254
+
+
+def has_alpha_channel(img: Image.Image, alpha_threshold: int = ALPHA_OPAQUE_THRESHOLD) -> bool:
     """
     Check if the image contains meaningful transparency / alpha channel information.
     Returns True if transparent or semi-transparent pixels exist.
+    Alpha values >= alpha_threshold (default 254) are treated as opaque.
     """
     try:
         # Check standard RGBA / LA / PA modes
         if img.mode in ("RGBA", "LA", "PA"):
             alpha = img.getchannel("A")
             min_val, max_val = alpha.getextrema()
-            # If minimum alpha is < 255, at least one pixel is transparent/translucent
-            return min_val < 255
+            # If minimum alpha is < alpha_threshold, at least one pixel is transparent/translucent
+            return min_val < alpha_threshold
 
         # Palette mode with transparency info
         if img.mode == "P" and "transparency" in img.info:
             transparency = img.info["transparency"]
             if isinstance(transparency, bytes):
                 # Alpha palette
-                return min(transparency) < 255
+                return min(transparency) < alpha_threshold
             elif isinstance(transparency, int):
                 # Single transparent index used
                 # Check if this index actually appears in the image
