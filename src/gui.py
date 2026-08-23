@@ -737,9 +737,9 @@ class ConfigApp(tk.Tk):
         footer = tk.Frame(self, bg="#ffffff", padx=20, pady=14, highlightthickness=1, highlightbackground="#e2e8f0")
         footer.pack(fill=tk.X, side=tk.BOTTOM)
 
-        # Global Options (Checkboxes)
+        # Global Options (Checkboxes stacked vertically)
         global_opts = tk.Frame(footer, bg="#ffffff")
-        global_opts.pack(fill=tk.X, pady=(0, 10))
+        global_opts.pack(side=tk.LEFT)
 
         chk_win = ttk.Checkbutton(
             global_opts,
@@ -747,7 +747,7 @@ class ConfigApp(tk.Tk):
             variable=self.var_startup,
             command=self._on_toggle_startup,
         )
-        chk_win.pack(side=tk.LEFT, padx=(0, 20))
+        chk_win.pack(anchor="w", pady=(0, 6))
 
         chk_notify = ttk.Checkbutton(
             global_opts,
@@ -755,14 +755,11 @@ class ConfigApp(tk.Tk):
             variable=self.var_notify,
             command=self._on_toggle_notify,
         )
-        chk_notify.pack(side=tk.LEFT)
+        chk_notify.pack(anchor="w")
 
-        # Footer Action Buttons
-        actions_row = tk.Frame(footer, bg="#ffffff")
-        actions_row.pack(fill=tk.X)
-
+        # Footer Action Button
         btn_start = tk.Button(
-            actions_row,
+            footer,
             text="🚀 Start Watching & Minimize to Tray",
             font=("Segoe UI", 10, "bold"),
             bg="#2563eb",
@@ -775,22 +772,7 @@ class ConfigApp(tk.Tk):
             cursor="hand2",
             command=self._on_start_and_close,
         )
-        btn_start.pack(side=tk.RIGHT, padx=(8, 0))
-
-        btn_save_only = tk.Button(
-            actions_row,
-            text="💾 Save Settings",
-            font=("Segoe UI", 9),
-            bg="#f1f5f9",
-            fg="#475569",
-            activebackground="#e2e8f0",
-            relief="flat",
-            padx=16,
-            pady=8,
-            cursor="hand2",
-            command=self._on_save_settings_only,
-        )
-        btn_save_only.pack(side=tk.RIGHT)
+        btn_start.pack(side=tk.RIGHT)
 
     def _on_toggle_startup(self):
         val = self.var_startup.get()
@@ -802,14 +784,6 @@ class ConfigApp(tk.Tk):
         val = self.var_notify.get()
         self.config_manager.notify_on_convert = val
         self.config_manager.save()
-
-    def _on_save_settings_only(self):
-        self.config_manager.save()
-        messagebox.showinfo(
-            "Settings Saved",
-            "Configuration has been saved successfully.",
-            parent=self,
-        )
 
     def _on_start_and_close(self):
         if not self.config_manager.rules:

@@ -38,6 +38,30 @@ class TestGUISmoke(unittest.TestCase):
         editor.destroy()
         app.destroy()
 
+    def test_toggle_options_applied_immediately(self):
+        app = ConfigApp(self.cm)
+        app.update()
+
+        # Toggle startup
+        app.var_startup.set(False)
+        app._on_toggle_startup()
+        self.assertFalse(self.cm.start_with_windows)
+
+        # Reload from file to ensure disk persistence
+        cm_reloaded = ConfigManager(self.config_file)
+        self.assertFalse(cm_reloaded.start_with_windows)
+
+        # Toggle notify
+        app.var_notify.set(False)
+        app._on_toggle_notify()
+        self.assertFalse(self.cm.notify_on_convert)
+
+        cm_reloaded2 = ConfigManager(self.config_file)
+        self.assertFalse(cm_reloaded2.notify_on_convert)
+
+        app.destroy()
+
 
 if __name__ == "__main__":
     unittest.main()
+
