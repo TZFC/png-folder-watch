@@ -62,6 +62,38 @@ class TestGUISmoke(unittest.TestCase):
         app.destroy()
 
 
+    def test_gui_language_toggle(self):
+        rule = create_default_rule("C:\\TestFolder")
+        self.cm.add_rule(rule)
+
+        # Start with zh-CN
+        self.cm.language = "zh-CN"
+        self.cm.save()
+
+        app = ConfigApp(self.cm)
+        app.update()
+
+        self.assertIn("PNG 图片监控转换器", app.lbl_hero_title.cget("text"))
+        self.assertEqual(app.btn_lang.cget("text"), "🌐 English")
+
+        # Toggle to English
+        app._toggle_language()
+        app.update()
+
+        self.assertEqual(self.cm.language, "en-US")
+        self.assertIn("PNG Folder Watch", app.lbl_hero_title.cget("text"))
+        self.assertEqual(app.btn_lang.cget("text"), "🌐 简体中文")
+
+        # Toggle back to zh-CN
+        app._toggle_language()
+        app.update()
+
+        self.assertEqual(self.cm.language, "zh-CN")
+        self.assertIn("PNG 图片监控转换器", app.lbl_hero_title.cget("text"))
+        self.assertEqual(app.btn_lang.cget("text"), "🌐 English")
+
+        app.destroy()
+
     def test_gui_window_dimensions(self):
         app = ConfigApp(self.cm)
         app.update()

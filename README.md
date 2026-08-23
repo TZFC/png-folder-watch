@@ -8,6 +8,8 @@
 
 ## ✨ Key Features
 
+- **🌐 Bilingual UI & Instant Language Toggle**: Full localization for both Simplified Chinese (`zh-CN`) and English (`en-US`). Auto-detects Windows system language and features a one-click header toggle button `[ 🌐 English / 简体中文 ]` with instant live re-rendering.
+- **🇨🇳 100% Unicode & Chinese Path Support**: Complete resilience for folders and filenames containing Chinese characters, spaces, and non-ASCII symbols.
 - **🎨 Modernized Desktop UI**: Sleek dark-slate hero header, interactive selectable option cards, live quality sliders, status badges, and path chips.
 - **🛡️ 100% Constrained Choices (Zero Typing Required)**: Every setting uses native Windows folder/file path finders, interactive option cards, sliders, or checkboxes.
 - **📁 Flexible Output Locations**:
@@ -40,15 +42,15 @@ Download or place this folder anywhere on your computer (e.g. `C:\Tools\PNGWatch
 - The **Settings & Rules** window will appear automatically.
 
 ### 3. Set Up Your First Watch Rule
-1. Click **📁 Browse Folder...** to choose the folder containing your screenshots or images.
+1. Click **📁 Browse Folder...** (`📂 浏览文件夹...`) to choose the folder containing your screenshots or images.
 2. Select your preferred **JPG Location** (Same folder, `./jpg/` subfolder, or mirrored folder).
 3. Select your **Original PNG Handling** policy (Keep original, delete always, or delete only if no transparency).
 4. Adjust **JPG Quality** slider (default 90% is optimal).
 5. Choose **When to Watch** (Continuous or only when a game/app is running).
-6. Click **💾 Save Rule**.
+6. Click **💾 Save Rule** (`💾 保存规则`).
 
 ### 4. Start Watching
-Click **🚀 Start Watching & Minimize to Tray**. The app will sit quietly in your Windows taskbar tray (near the clock) and convert files automatically as soon as they appear!
+Click **🚀 Start Watching & Minimize to Tray** (`🚀 启动监控并最小化到托盘`). The app will sit quietly in your Windows taskbar tray (near the clock) and convert files automatically as soon as they appear!
 
 ---
 
@@ -56,7 +58,7 @@ Click **🚀 Start Watching & Minimize to Tray**. The app will sit quietly in yo
 
 To change rules or add new folders:
 - **Option A**: Double-click `PNGWatch.bat` again.
-- **Option B**: Right-click the **PNG Folder Watch** icon in your system tray and select **⚙️ Settings & Rules...**.
+- **Option B**: Right-click the **PNG Folder Watch** icon in your system tray and select **⚙️ Settings & Rules...** (`⚙️ 设置与规则管理...`).
 
 ---
 
@@ -73,18 +75,20 @@ png-folder-watch/
 │   └── icon.png            # System tray icon
 ├── src/
 │   ├── config.py           # Configuration and rules manager
+│   ├── i18n.py             # Internationalization & translation dictionary (zh-CN / en-US)
 │   ├── converter.py        # Pillow PNG->JPG conversion & alpha detection
 │   ├── watcher.py          # Watchdog folder monitoring
 │   ├── process_monitor.py  # psutil background process monitor
-│   ├── gui.py              # Modern Tkinter configuration GUI
+│   ├── gui.py              # Modern Tkinter configuration GUI with language toggle
 │   ├── tray.py             # Pystray Windows system tray controller
 │   ├── startup.py          # Windows Startup shortcut manager
 │   ├── icon_generator.py   # Icon graphics generator
 │   └── main.py             # Application entry point & single-instance lock
 └── tests/
-    ├── test_all.py          # Core unit tests
-    ├── test_watcher_live.py # Live folder monitoring integration tests
-    └── test_gui.py          # GUI widget smoke tests
+    ├── test_all.py          # Core unit & Chinese path conversion tests
+    ├── test_i18n.py         # i18n key parity and translation tests
+    ├── test_gui.py          # GUI language toggle & smoke tests
+    └── test_watcher_live.py # Live folder monitoring integration tests
 ```
 
 ---

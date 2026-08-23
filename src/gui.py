@@ -1,7 +1,8 @@
 """
 Modern Graphical User Interface for PNG Folder Watch.
 Features a sleek desktop UI with zero-freeform-input rule editor,
-custom option cards, real-time quality sliders, and native Windows pickers.
+custom option cards, real-time quality sliders, native Windows pickers,
+and seamless language toggling between Simplified Chinese (zh-CN) and English (en-US).
 """
 
 import os
@@ -25,6 +26,17 @@ from .config import (
     WATCH_MODE_ALWAYS,
     WATCH_MODE_ON_APP,
     WATCH_MODES,
+)
+from .i18n import (
+    t,
+    get_language,
+    set_language,
+    toggle_language,
+    get_localized_output_modes,
+    get_localized_keep_original_modes,
+    get_localized_watch_modes,
+    LANG_ZH_CN,
+    LANG_EN_US,
 )
 from .startup import is_startup_enabled, set_startup
 from .icon_generator import ensure_icon_files, ICON_PNG_PATH, ICON_ICO_PATH
@@ -143,6 +155,7 @@ class RuleEditorDialog(tk.Toplevel):
     """
     Modern modal dialog for configuring a folder watch rule.
     Zero freeform text input: all choices use constrained pickers & option cards.
+    Fully localized in zh-CN and en-US.
     """
 
     def __init__(
@@ -158,7 +171,7 @@ class RuleEditorDialog(tk.Toplevel):
         self.is_new = rule is None
         self.rule = rule.copy() if rule else create_default_rule()
 
-        self.title("✨ Add Watch Folder Rule" if self.is_new else "✏️ Edit Watch Folder Rule")
+        self.title(t("dialog_title_add") if self.is_new else t("dialog_title_edit"))
         self.geometry("720x760")
         self.minsize(680, 640)
         self.config(bg="#f8fafc")
@@ -204,7 +217,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         lbl_head_title = tk.Label(
             header,
-            text="✨ Add Watch Folder Rule" if self.is_new else "✏️ Edit Watch Folder Rule",
+            text=t("dialog_banner_title_add") if self.is_new else t("dialog_banner_title_edit"),
             font=("Segoe UI", 13, "bold"),
             bg="#0f172a",
             fg="#ffffff",
@@ -213,7 +226,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         lbl_head_sub = tk.Label(
             header,
-            text="Configure folder location, auto-conversion behavior, and game triggers.",
+            text=t("dialog_banner_sub"),
             font=("Segoe UI", 9),
             bg="#0f172a",
             fg="#94a3b8",
@@ -250,11 +263,11 @@ class RuleEditorDialog(tk.Toplevel):
         # ----------------------------------------------------
         # Section 1: Folder Selection
         # ----------------------------------------------------
-        sec1 = self._create_section(scroll_content, "📁 1. Folder to Watch")
+        sec1 = self._create_section(scroll_content, t("sec1_title"))
         
         lbl_sec1_desc = tk.Label(
             sec1,
-            text="Choose the folder where your PNG screenshots or images are created.",
+            text=t("sec1_desc"),
             font=("Segoe UI", 9),
             bg="#ffffff",
             fg="#64748b",
@@ -266,7 +279,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         btn_browse = tk.Button(
             folder_bar,
-            text="📂 Browse Folder...",
+            text=t("btn_browse_folder"),
             font=("Segoe UI", 9, "bold"),
             bg="#2563eb",
             fg="#ffffff",
@@ -295,14 +308,14 @@ class RuleEditorDialog(tk.Toplevel):
         self.chip_folder.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         if not self.var_folder.get():
-            self.chip_folder.config(text="⚠️ No folder selected yet (Click 'Browse Folder...')")
+            self.chip_folder.config(text=t("no_folder_selected"))
 
         # ----------------------------------------------------
         # Section 2: Output Location
         # ----------------------------------------------------
-        sec2 = self._create_section(scroll_content, "💾 2. Where to Save JPG Images")
+        sec2 = self._create_section(scroll_content, t("sec2_title"))
 
-        for mode_val, title, desc in OUTPUT_MODES:
+        for mode_val, title, desc in get_localized_output_modes():
             card = ModernOptionCard(
                 sec2,
                 title=title,
@@ -315,9 +328,9 @@ class RuleEditorDialog(tk.Toplevel):
         # ----------------------------------------------------
         # Section 3: Original PNG Handling
         # ----------------------------------------------------
-        sec3 = self._create_section(scroll_content, "🎨 3. Original PNG Handling")
+        sec3 = self._create_section(scroll_content, t("sec3_title"))
 
-        for mode_val, title, desc in KEEP_ORIGINAL_MODES:
+        for mode_val, title, desc in get_localized_keep_original_modes():
             card = ModernOptionCard(
                 sec3,
                 title=title,
@@ -340,14 +353,14 @@ class RuleEditorDialog(tk.Toplevel):
 
         chk_apply_existing = ttk.Checkbutton(
             self.box_apply_existing,
-            text="Apply to processed images (Danger)",
+            text=t("chk_apply_existing"),
             variable=self.var_apply_delete_to_existing,
         )
         chk_apply_existing.pack(anchor="w")
 
         lbl_danger_desc = tk.Label(
             self.box_apply_existing,
-            text="Delete existing original PNGs in this folder if a matching JPG already exists.",
+            text=t("apply_existing_desc"),
             font=("Segoe UI", 8),
             bg="#fef2f2",
             fg="#991b1b",
@@ -362,16 +375,16 @@ class RuleEditorDialog(tk.Toplevel):
         # ----------------------------------------------------
         # Section 4: JPG Quality & Options
         # ----------------------------------------------------
-        sec4 = self._create_section(scroll_content, "🎚️ 4. Quality & Existing Images")
+        sec4 = self._create_section(scroll_content, t("sec4_title"))
 
         q_row = tk.Frame(sec4, bg="#ffffff")
         q_row.pack(fill=tk.X, pady=(0, 6))
 
-        tk.Label(q_row, text="JPG Quality:", font=("Segoe UI", 9, "bold"), bg="#ffffff", fg="#0f172a").pack(side=tk.LEFT)
+        tk.Label(q_row, text=t("lbl_jpg_quality"), font=("Segoe UI", 9, "bold"), bg="#ffffff", fg="#0f172a").pack(side=tk.LEFT)
 
         self.lbl_qual_badge = tk.Label(
             q_row,
-            text=f"{self.var_jpg_quality.get()}% (High Quality)",
+            text=self._get_quality_label_text(self.var_jpg_quality.get()),
             font=("Segoe UI", 9, "bold"),
             bg="#eff6ff",
             fg="#2563eb",
@@ -400,7 +413,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         chk_exist = ttk.Checkbutton(
             sec4,
-            text="Convert existing PNG images in this folder upon startup",
+            text=t("chk_process_existing"),
             variable=self.var_process_existing,
         )
         chk_exist.pack(anchor="w", pady=(4, 0))
@@ -408,9 +421,9 @@ class RuleEditorDialog(tk.Toplevel):
         # ----------------------------------------------------
         # Section 5: When to Watch (Per-Rule Trigger)
         # ----------------------------------------------------
-        sec5 = self._create_section(scroll_content, "🎮 5. When to Watch This Folder")
+        sec5 = self._create_section(scroll_content, t("sec5_title"))
 
-        for mode_val, title, desc in WATCH_MODES:
+        for mode_val, title, desc in get_localized_watch_modes():
             card = ModernOptionCard(
                 sec5,
                 title=title,
@@ -427,7 +440,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         tk.Label(
             self.app_picker_box,
-            text="Target Game / Application Executable:",
+            text=t("lbl_target_app"),
             font=("Segoe UI", 9, "bold"),
             bg="#f8fafc",
             fg="#0f172a",
@@ -438,7 +451,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         btn_pick_exe = tk.Button(
             app_btn_row,
-            text="🎮 Select Game / App (.exe)...",
+            text=t("btn_pick_exe"),
             font=("Segoe UI", 9, "bold"),
             bg="#8b5cf6",
             fg="#ffffff",
@@ -475,7 +488,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         btn_cancel = tk.Button(
             footer,
-            text="Cancel",
+            text=t("btn_cancel"),
             font=("Segoe UI", 9),
             bg="#f1f5f9",
             fg="#475569",
@@ -490,7 +503,7 @@ class RuleEditorDialog(tk.Toplevel):
 
         btn_save = tk.Button(
             footer,
-            text="💾 Save Rule",
+            text=t("btn_save_rule"),
             font=("Segoe UI", 9, "bold"),
             bg="#2563eb",
             fg="#ffffff",
@@ -518,17 +531,20 @@ class RuleEditorDialog(tk.Toplevel):
         lbl_title.pack(anchor="w", pady=(0, 8))
         return card
 
+    def _get_quality_label_text(self, value: int) -> str:
+        val = int(value)
+        if val >= 95:
+            return t("qual_maximum", val=val)
+        elif val >= 85:
+            return t("qual_high", val=val)
+        elif val >= 70:
+            return t("qual_balanced", val=val)
+        else:
+            return t("qual_medium", val=val)
+
     def _on_quality_change(self, value):
         val = int(float(value))
-        if val >= 95:
-            qual_text = f"{val}% (Maximum Quality)"
-        elif val >= 85:
-            qual_text = f"{val}% (High Quality - Recommended)"
-        elif val >= 70:
-            qual_text = f"{val}% (Balanced Quality & Size)"
-        else:
-            qual_text = f"{val}% (Medium Quality, Small File)"
-        self.lbl_qual_badge.config(text=qual_text)
+        self.lbl_qual_badge.config(text=self._get_quality_label_text(val))
 
     def _update_apply_existing_visibility(self):
         val = self.var_keep_original.get()
@@ -548,14 +564,14 @@ class RuleEditorDialog(tk.Toplevel):
         name = self.var_app_name.get()
         if name:
             self.chip_app.config(
-                text=f"Selected: {name}",
+                text=t("app_selected", name=name),
                 fg="#16a34a",
                 bg="#f0fdf4",
                 highlightbackground="#bbf7d0",
             )
         else:
             self.chip_app.config(
-                text="⚠️ No .exe selected yet",
+                text=t("no_app_selected"),
                 fg="#dc2626",
                 bg="#fef2f2",
                 highlightbackground="#fecaca",
@@ -565,7 +581,7 @@ class RuleEditorDialog(tk.Toplevel):
         initial = self.var_folder.get() or os.path.expanduser("~")
         selected = filedialog.askdirectory(
             parent=self,
-            title="Select Folder to Watch for PNG Images",
+            title=t("dialog_select_folder"),
             initialdir=initial,
         )
         if selected:
@@ -582,7 +598,7 @@ class RuleEditorDialog(tk.Toplevel):
         initial_dir = os.path.dirname(self.var_app_path.get()) if self.var_app_path.get() else r"C:\Program Files"
         selected = filedialog.askopenfilename(
             parent=self,
-            title="Select Game or Application Executable (.exe)",
+            title=t("dialog_select_app"),
             initialdir=initial_dir,
             filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")],
         )
@@ -597,8 +613,8 @@ class RuleEditorDialog(tk.Toplevel):
         folder = self.var_folder.get().strip()
         if not folder or not os.path.isdir(folder):
             messagebox.showerror(
-                "Folder Required",
-                "Please click 'Browse Folder...' and select a valid folder to watch.",
+                t("msg_folder_required_title"),
+                t("msg_folder_required_body"),
                 parent=self,
             )
             return
@@ -606,8 +622,8 @@ class RuleEditorDialog(tk.Toplevel):
         if self.var_watch_mode.get() == WATCH_MODE_ON_APP:
             if not self.var_app_path.get() and not self.var_app_name.get():
                 messagebox.showerror(
-                    "Game / App Required",
-                    "You selected 'Watch When Game / App Runs'.\nPlease click 'Select Game / App (.exe)...' to pick the target game executable.",
+                    t("msg_app_required_title"),
+                    t("msg_app_required_body"),
                     parent=self,
                 )
                 return
@@ -641,7 +657,8 @@ class RuleEditorDialog(tk.Toplevel):
 class ConfigApp(tk.Tk):
     """
     Modern Configuration Window for PNG Folder Watch.
-    Features card-based rule management, global Windows startup toggle, and status badges.
+    Features card-based rule management, global Windows startup toggle,
+    status badges, and instant language switching between zh-CN and en-US.
     """
 
     def __init__(
@@ -651,9 +668,10 @@ class ConfigApp(tk.Tk):
     ):
         super().__init__()
         self.config_manager = config_manager
+        set_language(self.config_manager.language)
         self.on_start_watching = on_start_watching
 
-        self.title("PNG Folder Watch — Dashboard & Rules")
+        self.title(t("window_title_dashboard"))
         self.geometry("940x700")
         self.minsize(860, 580)
         self.config(bg="#f8fafc")
@@ -699,28 +717,49 @@ class ConfigApp(tk.Tk):
         title_box = tk.Frame(hero, bg="#0f172a")
         title_box.pack(side=tk.LEFT, fill=tk.Y)
 
-        lbl_hero_title = tk.Label(
+        self.lbl_hero_title = tk.Label(
             title_box,
-            text="📸 PNG Folder Watch",
+            text=f"📸 {t('app_name')}",
             font=("Segoe UI", 16, "bold"),
             bg="#0f172a",
             fg="#ffffff",
         )
-        lbl_hero_title.pack(anchor="w")
+        self.lbl_hero_title.pack(anchor="w")
 
-        lbl_hero_sub = tk.Label(
+        self.lbl_hero_sub = tk.Label(
             title_box,
-            text="Set-and-forget background converter for game screenshots & folders",
+            text=t("app_subtitle"),
             font=("Segoe UI", 9),
             bg="#0f172a",
             fg="#94a3b8",
         )
-        lbl_hero_sub.pack(anchor="w", pady=(2, 0))
+        self.lbl_hero_sub.pack(anchor="w", pady=(2, 0))
+
+        # Right Action Buttons Box in Hero
+        header_actions = tk.Frame(hero, bg="#0f172a")
+        header_actions.pack(side=tk.RIGHT)
+
+        # Language Toggle Button
+        self.btn_lang = tk.Button(
+            header_actions,
+            text=t("lang_switch_btn"),
+            font=("Segoe UI", 9, "bold"),
+            bg="#1e293b",
+            fg="#f1f5f9",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=12,
+            pady=8,
+            cursor="hand2",
+            command=self._toggle_language,
+        )
+        self.btn_lang.pack(side=tk.LEFT, padx=(0, 10))
 
         # Add Rule Button in Hero
-        btn_add = tk.Button(
-            hero,
-            text="➕ Add Watch Folder Rule",
+        self.btn_add = tk.Button(
+            header_actions,
+            text=t("btn_add_rule"),
             font=("Segoe UI", 9, "bold"),
             bg="#2563eb",
             fg="#ffffff",
@@ -732,7 +771,7 @@ class ConfigApp(tk.Tk):
             cursor="hand2",
             command=self._open_add_rule_dialog,
         )
-        btn_add.pack(side=tk.RIGHT, padx=4)
+        self.btn_add.pack(side=tk.LEFT)
 
         # ----------------------------------------------------
         # Status & Overview Bar
@@ -742,7 +781,7 @@ class ConfigApp(tk.Tk):
 
         self.lbl_status_badge = tk.Label(
             status_bar,
-            text="🟢 Ready • 0 Rules Configured",
+            text=t("status_ready", count=0),
             font=("Segoe UI", 9, "bold"),
             bg="#f1f5f9",
             fg="#334155",
@@ -785,9 +824,9 @@ class ConfigApp(tk.Tk):
         footer.pack(fill=tk.X, side=tk.BOTTOM)
 
         # Footer Action Button (Pack FIRST on RIGHT to guarantee full width and prevent overflow)
-        btn_start = tk.Button(
+        self.btn_start = tk.Button(
             footer,
-            text="🚀 Start Watching & Minimize to Tray",
+            text=t("btn_start_watching"),
             font=("Segoe UI", 10, "bold"),
             bg="#2563eb",
             fg="#ffffff",
@@ -799,27 +838,46 @@ class ConfigApp(tk.Tk):
             cursor="hand2",
             command=self._on_start_and_close,
         )
-        btn_start.pack(side=tk.RIGHT, padx=(16, 0))
+        self.btn_start.pack(side=tk.RIGHT, padx=(16, 0))
 
         # Global Options (Checkboxes stacked vertically on LEFT)
         global_opts = tk.Frame(footer, bg="#ffffff")
         global_opts.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        chk_win = ttk.Checkbutton(
+        self.chk_win = ttk.Checkbutton(
             global_opts,
-            text="Start with Windows (Launch silently in system tray on boot)",
+            text=t("chk_startup"),
             variable=self.var_startup,
             command=self._on_toggle_startup,
         )
-        chk_win.pack(anchor="w", pady=(0, 6))
+        self.chk_win.pack(anchor="w", pady=(0, 6))
 
-        chk_notify = ttk.Checkbutton(
+        self.chk_notify = ttk.Checkbutton(
             global_opts,
-            text="Show notification toast on image conversion",
+            text=t("chk_notify"),
             variable=self.var_notify,
             command=self._on_toggle_notify,
         )
-        chk_notify.pack(anchor="w")
+        self.chk_notify.pack(anchor="w")
+
+    def _toggle_language(self):
+        """Toggle between Chinese and English and instantly refresh UI."""
+        new_lang = toggle_language()
+        self.config_manager.language = new_lang
+        self.config_manager.save()
+        self._retranslate_ui()
+
+    def _retranslate_ui(self):
+        """Update all text in current window dynamically without destroying widgets."""
+        self.title(t("window_title_dashboard"))
+        self.lbl_hero_title.config(text=f"📸 {t('app_name')}")
+        self.lbl_hero_sub.config(text=t("app_subtitle"))
+        self.btn_lang.config(text=t("lang_switch_btn"))
+        self.btn_add.config(text=t("btn_add_rule"))
+        self.chk_win.config(text=t("chk_startup"))
+        self.chk_notify.config(text=t("chk_notify"))
+        self.btn_start.config(text=t("btn_start_watching"))
+        self.refresh_rules_list()
 
     def _on_toggle_startup(self):
         val = self.var_startup.get()
@@ -835,8 +893,8 @@ class ConfigApp(tk.Tk):
     def _on_start_and_close(self):
         if not self.config_manager.rules:
             messagebox.showwarning(
-                "No Rules Configured",
-                "Please add at least one folder watch rule before starting.",
+                t("msg_no_rules_title"),
+                t("msg_no_rules_body"),
                 parent=self,
             )
             return
@@ -856,14 +914,14 @@ class ConfigApp(tk.Tk):
         super().destroy()
 
     def refresh_rules_list(self):
-        """Re-render the list of rule cards."""
+        """Re-render the list of rule cards with localized labels."""
         for child in self.cards_frame.winfo_children():
             child.destroy()
 
         rules = self.config_manager.rules
         active_count = sum(1 for r in rules if r.get("enabled", True))
         self.lbl_status_badge.config(
-            text=f"🟢 Ready • {active_count} of {len(rules)} Rules Active"
+            text=t("status_active", active=active_count, total=len(rules))
         )
 
         if not rules:
@@ -879,7 +937,7 @@ class ConfigApp(tk.Tk):
 
             tk.Label(
                 empty_frame,
-                text="No Watch Rules Configured Yet",
+                text=t("empty_title"),
                 font=("Segoe UI", 12, "bold"),
                 bg="#ffffff",
                 fg="#0f172a",
@@ -887,7 +945,7 @@ class ConfigApp(tk.Tk):
 
             tk.Label(
                 empty_frame,
-                text="Click '+ Add Watch Folder Rule' above to select your first screenshot folder.",
+                text=t("empty_desc"),
                 font=("Segoe UI", 9),
                 bg="#ffffff",
                 fg="#64748b",
@@ -935,7 +993,7 @@ class ConfigApp(tk.Tk):
 
         btn_toggle = tk.Button(
             btn_box,
-            text="Disable" if is_enabled else "Enable",
+            text=t("btn_disable") if is_enabled else t("btn_enable"),
             font=("Segoe UI", 8),
             bg="#f1f5f9",
             fg="#334155" if is_enabled else "#15803d",
@@ -949,7 +1007,7 @@ class ConfigApp(tk.Tk):
 
         btn_edit = tk.Button(
             btn_box,
-            text="✏️ Edit",
+            text=t("btn_edit"),
             font=("Segoe UI", 8),
             bg="#eff6ff",
             fg="#1d4ed8",
@@ -963,7 +1021,7 @@ class ConfigApp(tk.Tk):
 
         btn_del = tk.Button(
             btn_box,
-            text="🗑️ Delete",
+            text=t("btn_delete"),
             font=("Segoe UI", 8),
             bg="#fef2f2",
             fg="#b91c1c",
@@ -1002,35 +1060,35 @@ class ConfigApp(tk.Tk):
         # Output Badge
         out_mode = rule.get("output_mode", OUTPUT_MODE_SAME)
         out_labels = {
-            OUTPUT_MODE_SAME: "Save: Same Folder",
-            OUTPUT_MODE_JPG_SUB: "Save: ./jpg/ Subfolder",
-            OUTPUT_MODE_MIRROR: "Save: Mirror Structure",
+            OUTPUT_MODE_SAME: t("badge_out_same"),
+            OUTPUT_MODE_JPG_SUB: t("badge_out_sub"),
+            OUTPUT_MODE_MIRROR: t("badge_out_mirror"),
         }
-        self._add_badge(badges_row, out_labels.get(out_mode, "Same Folder"), "#eff6ff", "#1d4ed8", "#bfdbfe")
+        self._add_badge(badges_row, out_labels.get(out_mode, t("badge_out_same")), "#eff6ff", "#1d4ed8", "#bfdbfe")
 
         # Keep Badge
         keep_mode = rule.get("keep_original", KEEP_ORIGINAL_ALWAYS)
         keep_labels = {
-            KEEP_ORIGINAL_ALWAYS: "Keep PNG: Always",
-            KEEP_ORIGINAL_NEVER: "Keep PNG: Never (Delete)",
-            KEEP_ORIGINAL_DELETE_NO_ALPHA: "Keep PNG: Only if Transparent",
+            KEEP_ORIGINAL_ALWAYS: t("badge_keep_always"),
+            KEEP_ORIGINAL_NEVER: t("badge_keep_never"),
+            KEEP_ORIGINAL_DELETE_NO_ALPHA: t("badge_keep_delete_no_alpha"),
         }
-        self._add_badge(badges_row, keep_labels.get(keep_mode, "Keep"), "#f8fafc", "#475569", "#cbd5e1")
+        self._add_badge(badges_row, keep_labels.get(keep_mode, t("badge_keep_always")), "#f8fafc", "#475569", "#cbd5e1")
 
         if is_enabled and rule.get("apply_delete_to_existing", False) and keep_mode != KEEP_ORIGINAL_ALWAYS:
-            self._add_badge(badges_row, "⚠️ Deletes Processed PNGs", "#fef2f2", "#b91c1c", "#fca5a5")
+            self._add_badge(badges_row, t("badge_danger_delete_existing"), "#fef2f2", "#b91c1c", "#fca5a5")
 
         # Quality Badge
         quality = rule.get("jpg_quality", 90)
-        self._add_badge(badges_row, f"Quality: {quality}%", "#f8fafc", "#475569", "#cbd5e1")
+        self._add_badge(badges_row, t("badge_quality", quality=quality), "#f8fafc", "#475569", "#cbd5e1")
 
         # Trigger / Watch Mode Badge
         watch_mode = rule.get("watch_mode", WATCH_MODE_ALWAYS)
         if watch_mode == WATCH_MODE_ON_APP:
             app_name = rule.get("target_app_name") or os.path.basename(rule.get("target_app_path", "Game.exe"))
-            self._add_badge(badges_row, f"🎮 Active when {app_name} runs", "#f5f3ff", "#6d28d9", "#ddd6fe")
+            self._add_badge(badges_row, t("badge_watch_app", app=app_name), "#f5f3ff", "#6d28d9", "#ddd6fe")
         else:
-            self._add_badge(badges_row, "⚡ Continuous Watch", "#f0fdf4", "#15803d", "#bbf7d0")
+            self._add_badge(badges_row, t("badge_watch_continuous"), "#f0fdf4", "#15803d", "#bbf7d0")
 
     def _add_badge(self, parent: tk.Frame, text: str, bg: str, fg: str, border: str):
         badge = tk.Label(
@@ -1076,8 +1134,8 @@ class ConfigApp(tk.Tk):
 
     def _delete_rule(self, rule: Dict[str, Any]):
         confirm = messagebox.askyesno(
-            "Delete Rule",
-            f"Are you sure you want to delete the rule for:\n{rule.get('watch_folder')}?",
+            t("msg_delete_rule_title"),
+            t("msg_delete_rule_body", path=rule.get('watch_folder')),
             parent=self,
         )
         if confirm:

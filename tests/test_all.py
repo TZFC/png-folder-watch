@@ -215,6 +215,37 @@ class TestConverter(unittest.TestCase):
         self.assertTrue(os.path.exists(trans_jpg_path), "Transparent JPG should remain")
 
 
+    def test_chinese_paths_and_filenames_conversion(self):
+        """Ensure full support for Chinese folder paths and image filenames."""
+        cn_folder = os.path.join(self.watch_root, "游戏截图_2026", "原神_相册")
+        os.makedirs(cn_folder, exist_ok=True)
+        cn_png = os.path.join(cn_folder, "旅行者_透明测试.png")
+        self._create_test_png(cn_png, "RGBA", with_transparency=True)
+
+        cn_opaque_png = os.path.join(cn_folder, "不透明风景_璃月港.png")
+        self._create_test_png(cn_opaque_png, "RGBA", with_transparency=False)
+
+        rule = create_default_rule(cn_folder)
+        rule["keep_original"] = KEEP_ORIGINAL_DELETE_NO_ALPHA
+        rule["output_mode"] = OUTPUT_MODE_JPG_SUB
+
+        # 1. Convert transparent PNG
+        success1, msg1, tgt1, del1 = convert_png_to_jpg(cn_png, rule)
+        self.assertTrue(success1)
+        self.assertFalse(del1)
+        self.assertTrue(os.path.exists(cn_png))
+        self.assertTrue(os.path.exists(tgt1))
+        self.assertIn("原神_相册", tgt1)
+        self.assertIn("jpg", tgt1)
+
+        # 2. Convert opaque PNG
+        success2, msg2, tgt2, del2 = convert_png_to_jpg(cn_opaque_png, rule)
+        self.assertTrue(success2)
+        self.assertTrue(del2)
+        self.assertFalse(os.path.exists(cn_opaque_png))
+        self.assertTrue(os.path.exists(tgt2))
+
+
 class TestConfigManager(unittest.TestCase):
 
     def setUp(self):
@@ -246,6 +277,7 @@ class TestConfigManager(unittest.TestCase):
         self.cm.update_rule(rule_id, rule)
 
         self.cm.start_with_windows = True
+        self.cm.language = "zh-CN"
         self.cm.save()
 
         cm3 = ConfigManager(self.config_file)
@@ -253,8 +285,13 @@ class TestConfigManager(unittest.TestCase):
         self.assertEqual(saved_rule["watch_mode"], "on_app")
         self.assertEqual(saved_rule["target_app_name"], "Cyberpunk2077.exe")
         self.assertTrue(cm3.start_with_windows)
+        self.assertEqual(cm3.language, "zh-CN")
 
-
+        # Toggle to en-US
+        self.cm.language = "en-US"
+        self.cm.save()
+        cm4 = ConfigManager(self.config_file)
+        self.assertEqual(cm4.language, "en-US")
 
 
 if __name__ == "__main__":

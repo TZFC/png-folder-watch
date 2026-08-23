@@ -13,6 +13,7 @@ import pystray
 from pystray import MenuItem as item, Menu
 
 from .config import ConfigManager, WATCH_MODE_ALWAYS, WATCH_MODE_ON_APP
+from .i18n import t, get_language, set_language
 from .watcher import WatcherManager
 from .process_monitor import ProcessMonitor
 from .icon_generator import create_app_icon, ensure_icon_files, ICON_PNG_PATH
@@ -24,6 +25,7 @@ class TrayApp:
 
     def __init__(self, config_manager: Optional[ConfigManager] = None):
         self.config_manager = config_manager or ConfigManager()
+        set_language(self.config_manager.language)
         self.watcher_manager = WatcherManager(on_converted=self._on_file_converted)
         self.process_monitor = ProcessMonitor(
             self.watcher_manager,
@@ -48,22 +50,22 @@ class TrayApp:
         else:
             icon_img = create_app_icon(64)
 
-        # Build tray menu
+        # Build tray menu with dynamic localized labels
         menu = Menu(
-            item("📸 PNG Folder Watch", None, enabled=False),
+            item(lambda i: t("tray_title"), None, enabled=False),
             item(self._get_status_text, None, enabled=False),
             Menu.SEPARATOR,
-            item("⚙️ Settings & Rules...", self._on_open_settings, default=True),
+            item(lambda i: t("tray_settings"), self._on_open_settings, default=True),
             item(self._get_pause_label, self._on_toggle_pause),
-            item("📁 Open Watched Folder", Menu(self._build_folder_menu_items)),
+            item(lambda i: t("tray_open_folder"), Menu(self._build_folder_menu_items)),
             Menu.SEPARATOR,
-            item("❌ Exit", self._on_exit),
+            item(lambda i: t("tray_exit"), self._on_exit),
         )
 
         self.icon = pystray.Icon(
             "PNGFolderWatch",
             icon_img,
-            "PNG Folder Watch — Active",
+            t("tray_tooltip_active"),
             menu=menu,
         )
 
@@ -93,41 +95,41 @@ class TrayApp:
                 rule_name = rule.get("name", "Folder")
                 if is_running:
                     self.icon.notify(
-                        f"Detected {app_name}!\nWatching folder: {rule_name}",
-                        title="PNG Folder Watch Active",
+                        t("notify_app_active_msg", app_name=app_name, rule_name=rule_name),
+                        title=t("notify_app_active_title"),
                     )
                 else:
                     self.icon.notify(
-                        f"{app_name} closed.\nStopped watching: {rule_name}",
-                        title="PNG Folder Watch Idle",
+                        t("notify_app_idle_msg", app_name=app_name, rule_name=rule_name),
+                        title=t("notify_app_idle_title"),
                     )
             except Exception:
                 pass
 
     def _get_status_text(self, item=None) -> str:
         if self.watcher_manager.is_paused:
-            return "⏸️ Status: Paused"
+            return t("tray_status_paused")
 
         active_count = self.watcher_manager.get_active_count()
         total_count = len([r for r in self.config_manager.rules if r.get("enabled", True)])
         app_active = self.process_monitor.get_active_app_rules_count()
 
         if app_active > 0:
-            return f"🟢 Status: {active_count}/{total_count} Folders Active ({app_active} Game Active)"
-        return f"🟢 Status: {active_count}/{total_count} Folders Active"
+            return t("tray_status_active_app", active=active_count, total=total_count, app_active=app_active)
+        return t("tray_status_active", active=active_count, total=total_count)
 
     def _get_pause_label(self, item=None) -> str:
-        return "▶️ Resume Watching" if self.watcher_manager.is_paused else "⏸️ Pause All"
+        return t("tray_resume") if self.watcher_manager.is_paused else t("tray_pause")
 
     def _on_toggle_pause(self, icon=None, item=None):
         if self.watcher_manager.is_paused:
             self.watcher_manager.resume()
             if self.icon:
-                self.icon.title = "PNG Folder Watch — Active"
+                self.icon.title = t("tray_tooltip_active")
         else:
             self.watcher_manager.pause()
             if self.icon:
-                self.icon.title = "PNG Folder Watch — Paused"
+                self.icon.title = t("tray_tooltip_paused")
 
     def _build_folder_menu_items(self):
         """Dynamically generate menu items for opening each watched folder in Windows Explorer."""
@@ -138,7 +140,7 @@ class TrayApp:
             if folder and os.path.isdir(folder):
                 items.append(item(name, lambda i, f=folder: self._open_explorer(f)))
         if not items:
-            items.append(item("No folders configured", None, enabled=False))
+            items.append(item(t("tray_no_folders"), None, enabled=False))
         return items
 
     def _open_explorer(self, folder_path: str):
@@ -152,10 +154,10 @@ class TrayApp:
         """Notification callback on conversion."""
         if self.config_manager.notify_on_convert and self.icon:
             try:
-                title = f"PNG Converted ({rule.get('name', 'Watch')})"
-                msg = f"Saved: {os.path.basename(jpg_path)}"
+                title = t("notify_converted_title", rule_name=rule.get("name", "Watch"))
+                msg = t("notify_saved_msg", filename=os.path.basename(jpg_path))
                 if deleted_original:
-                    msg += "\nOriginal PNG deleted"
+                    msg += "\n" + t("notify_deleted_msg")
                 self.icon.notify(msg, title=title)
             except Exception:
                 pass
@@ -174,6 +176,7 @@ class TrayApp:
     def _on_settings_saved(self):
         """Reload configuration and restart active watchers."""
         self.config_manager.load()
+        set_language(self.config_manager.language)
         self._apply_rules()
         print("[TrayApp] Re-applied updated settings and rules.")
 

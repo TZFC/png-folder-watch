@@ -84,10 +84,14 @@ def create_default_rule(folder_path: str = "") -> Dict[str, Any]:
     }
 
 
+from .i18n import detect_system_language, set_language, get_language, LANG_ZH_CN, LANG_EN_US
+
+
 def get_default_config() -> Dict[str, Any]:
     """Return default global configuration."""
     return {
         "version": 3,
+        "language": detect_system_language(),
         "start_with_windows": True,
         "notify_on_convert": True,
         "rules": [],
@@ -100,6 +104,8 @@ class ConfigManager:
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path or get_config_path()
         self.data = self.load()
+        # Synchronize active i18n language
+        set_language(self.language)
 
     def load(self) -> Dict[str, Any]:
         """Load configuration from disk or return default."""
@@ -124,6 +130,15 @@ class ConfigManager:
         except Exception as e:
             print(f"[ConfigManager] Error saving config: {e}")
             return False
+
+    @property
+    def language(self) -> str:
+        return self.data.get("language", detect_system_language())
+
+    @language.setter
+    def language(self, value: str):
+        self.data["language"] = value
+        set_language(value)
 
     @property
     def rules(self) -> List[Dict[str, Any]]:

@@ -99,6 +99,7 @@ def enable_startup() -> bool:
         py_exe = get_pythonw_executable()
         working_dir = os.path.abspath(APP_DIR)
 
+        import base64
         ps_cmd = f"""
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut('{SHORTCUT_PATH}')
@@ -109,8 +110,9 @@ $s.Description = 'PNG Folder Watch background service'
 $s.WindowStyle = 7
 $s.Save()
 """
+        encoded_cmd = base64.b64encode(ps_cmd.encode("utf-16le")).decode("ascii")
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps_cmd],
+            ["powershell", "-NoProfile", "-EncodedCommand", encoded_cmd],
             capture_output=True,
             text=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
