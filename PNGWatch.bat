@@ -18,12 +18,12 @@ if not exist "runtime\python.exe" (
 )
 
 :: Launch PNG Folder Watch in background (pythonw prevents terminal window from staying open)
-if exist "runtime\pythonw.exe" (
-    start "" "runtime\pythonw.exe" -m src.main %*
-) else if exist "runtime\python.exe" (
-    start "" "runtime\python.exe" -m src.main %*
+if exist "%~dp0runtime\pythonw.exe" (
+    start "" "%~dp0runtime\pythonw.exe" "%~dp0src\main.py" %*
+) else if exist "%~dp0runtime\python.exe" (
+    start "" "%~dp0runtime\python.exe" "%~dp0src\main.py" %*
 ) else (
-    start "" python -m src.main %*
+    start "" python "%~dp0src\main.py" %*
 )
 
 exit /b 0

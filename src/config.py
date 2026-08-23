@@ -76,6 +76,7 @@ def create_default_rule(folder_path: str = "") -> Dict[str, Any]:
         "keep_original": KEEP_ORIGINAL_ALWAYS,
         "jpg_quality": 90,
         "process_existing": True,
+        "apply_delete_to_existing": False,
         "watch_mode": WATCH_MODE_ALWAYS,
         "target_app_path": "",
         "target_app_name": "",

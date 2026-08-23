@@ -93,7 +93,7 @@ class ModernOptionCard(tk.Frame):
             bg="#ffffff",
             fg="#64748b",
             anchor="w",
-            wraplength=480,
+            wraplength=520,
             justify="left",
             cursor="hand2",
         )
@@ -159,8 +159,8 @@ class RuleEditorDialog(tk.Toplevel):
         self.rule = rule.copy() if rule else create_default_rule()
 
         self.title("✨ Add Watch Folder Rule" if self.is_new else "✏️ Edit Watch Folder Rule")
-        self.geometry("680x740")
-        self.minsize(620, 640)
+        self.geometry("720x760")
+        self.minsize(680, 640)
         self.config(bg="#f8fafc")
 
         ensure_icon_files()
@@ -190,6 +190,7 @@ class RuleEditorDialog(tk.Toplevel):
         self.var_folder = tk.StringVar(value=self.rule.get("watch_folder", ""))
         self.var_output_mode = tk.StringVar(value=self.rule.get("output_mode", OUTPUT_MODE_SAME))
         self.var_keep_original = tk.StringVar(value=self.rule.get("keep_original", KEEP_ORIGINAL_ALWAYS))
+        self.var_apply_delete_to_existing = tk.BooleanVar(value=self.rule.get("apply_delete_to_existing", False))
         self.var_jpg_quality = tk.IntVar(value=int(self.rule.get("jpg_quality", 90)))
         self.var_process_existing = tk.BooleanVar(value=self.rule.get("process_existing", True))
         self.var_watch_mode = tk.StringVar(value=self.rule.get("watch_mode", WATCH_MODE_ALWAYS))
@@ -323,8 +324,40 @@ class RuleEditorDialog(tk.Toplevel):
                 description=desc,
                 value=mode_val,
                 variable=self.var_keep_original,
+                on_select=lambda v: self._update_apply_existing_visibility(),
             )
             card.pack(fill=tk.X, pady=3)
+
+        # Danger Option: Apply delete to already processed images
+        self.box_apply_existing = tk.Frame(
+            sec3,
+            bg="#fef2f2",
+            padx=12,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground="#fca5a5",
+        )
+
+        chk_apply_existing = ttk.Checkbutton(
+            self.box_apply_existing,
+            text="Apply to processed images (Danger)",
+            variable=self.var_apply_delete_to_existing,
+        )
+        chk_apply_existing.pack(anchor="w")
+
+        lbl_danger_desc = tk.Label(
+            self.box_apply_existing,
+            text="Delete existing original PNGs in this folder if a matching JPG already exists.",
+            font=("Segoe UI", 8),
+            bg="#fef2f2",
+            fg="#991b1b",
+            anchor="w",
+            wraplength=480,
+            justify="left",
+        )
+        lbl_danger_desc.pack(anchor="w", padx=(20, 0), pady=(2, 0))
+
+        self._update_apply_existing_visibility()
 
         # ----------------------------------------------------
         # Section 4: JPG Quality & Options
@@ -497,6 +530,14 @@ class RuleEditorDialog(tk.Toplevel):
             qual_text = f"{val}% (Medium Quality, Small File)"
         self.lbl_qual_badge.config(text=qual_text)
 
+    def _update_apply_existing_visibility(self):
+        val = self.var_keep_original.get()
+        if val in (KEEP_ORIGINAL_NEVER, KEEP_ORIGINAL_DELETE_NO_ALPHA):
+            self.box_apply_existing.pack(fill=tk.X, pady=(8, 0))
+        else:
+            self.var_apply_delete_to_existing.set(False)
+            self.box_apply_existing.pack_forget()
+
     def _update_app_picker_visibility(self):
         if self.var_watch_mode.get() == WATCH_MODE_ON_APP:
             self.app_picker_box.pack(fill=tk.X, pady=(6, 0))
@@ -578,6 +619,11 @@ class RuleEditorDialog(tk.Toplevel):
         self.rule["watch_folder"] = folder
         self.rule["output_mode"] = self.var_output_mode.get()
         self.rule["keep_original"] = self.var_keep_original.get()
+        self.rule["apply_delete_to_existing"] = (
+            self.var_apply_delete_to_existing.get()
+            if self.var_keep_original.get() != KEEP_ORIGINAL_ALWAYS
+            else False
+        )
         self.rule["jpg_quality"] = int(self.var_jpg_quality.get())
         self.rule["process_existing"] = self.var_process_existing.get()
         self.rule["watch_mode"] = self.var_watch_mode.get()
@@ -608,8 +654,8 @@ class ConfigApp(tk.Tk):
         self.on_start_watching = on_start_watching
 
         self.title("PNG Folder Watch — Dashboard & Rules")
-        self.geometry("820x680")
-        self.minsize(740, 560)
+        self.geometry("940x700")
+        self.minsize(860, 580)
         self.config(bg="#f8fafc")
 
         ensure_icon_files()
@@ -624,9 +670,10 @@ class ConfigApp(tk.Tk):
         self.center_window()
         self.refresh_rules_list()
 
+        self._prompt_after_id = None
         # Prompt for first rule if empty
         if not self.config_manager.rules:
-            self.after(200, self._open_add_rule_dialog)
+            self._prompt_after_id = self.after(200, self._open_add_rule_dialog)
 
     def _init_variables(self):
         self.var_startup = tk.BooleanVar(value=self.config_manager.start_with_windows)
@@ -734,16 +781,33 @@ class ConfigApp(tk.Tk):
         # ----------------------------------------------------
         # Bottom Global Settings & Actions Footer
         # ----------------------------------------------------
-        footer = tk.Frame(self, bg="#ffffff", padx=20, pady=14, highlightthickness=1, highlightbackground="#e2e8f0")
+        footer = tk.Frame(self, bg="#ffffff", padx=24, pady=16, highlightthickness=1, highlightbackground="#e2e8f0")
         footer.pack(fill=tk.X, side=tk.BOTTOM)
 
-        # Global Options (Checkboxes stacked vertically)
+        # Footer Action Button (Pack FIRST on RIGHT to guarantee full width and prevent overflow)
+        btn_start = tk.Button(
+            footer,
+            text="🚀 Start Watching & Minimize to Tray",
+            font=("Segoe UI", 10, "bold"),
+            bg="#2563eb",
+            fg="#ffffff",
+            activebackground="#1d4ed8",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=22,
+            pady=10,
+            cursor="hand2",
+            command=self._on_start_and_close,
+        )
+        btn_start.pack(side=tk.RIGHT, padx=(16, 0))
+
+        # Global Options (Checkboxes stacked vertically on LEFT)
         global_opts = tk.Frame(footer, bg="#ffffff")
-        global_opts.pack(side=tk.LEFT)
+        global_opts.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         chk_win = ttk.Checkbutton(
             global_opts,
-            text="Start and Stop with Windows (Runs automatically in system tray on boot)",
+            text="Start with Windows (Launch silently in system tray on boot)",
             variable=self.var_startup,
             command=self._on_toggle_startup,
         )
@@ -756,23 +820,6 @@ class ConfigApp(tk.Tk):
             command=self._on_toggle_notify,
         )
         chk_notify.pack(anchor="w")
-
-        # Footer Action Button
-        btn_start = tk.Button(
-            footer,
-            text="🚀 Start Watching & Minimize to Tray",
-            font=("Segoe UI", 10, "bold"),
-            bg="#2563eb",
-            fg="#ffffff",
-            activebackground="#1d4ed8",
-            activeforeground="#ffffff",
-            relief="flat",
-            padx=18,
-            pady=8,
-            cursor="hand2",
-            command=self._on_start_and_close,
-        )
-        btn_start.pack(side=tk.RIGHT)
 
     def _on_toggle_startup(self):
         val = self.var_startup.get()
@@ -798,6 +845,15 @@ class ConfigApp(tk.Tk):
         if self.on_start_watching:
             self.on_start_watching()
         self.destroy()
+
+    def destroy(self):
+        if hasattr(self, "_prompt_after_id") and self._prompt_after_id:
+            try:
+                self.after_cancel(self._prompt_after_id)
+            except Exception:
+                pass
+            self._prompt_after_id = None
+        super().destroy()
 
     def refresh_rules_list(self):
         """Re-render the list of rule cards."""
@@ -934,7 +990,7 @@ class ConfigApp(tk.Tk):
             pady=4,
             relief="solid",
             borderwidth=1,
-            wraplength=660,
+            wraplength=780,
             justify="left",
         )
         lbl_path_chip.pack(anchor="w")
@@ -960,6 +1016,9 @@ class ConfigApp(tk.Tk):
             KEEP_ORIGINAL_DELETE_NO_ALPHA: "Keep PNG: Only if Transparent",
         }
         self._add_badge(badges_row, keep_labels.get(keep_mode, "Keep"), "#f8fafc", "#475569", "#cbd5e1")
+
+        if is_enabled and rule.get("apply_delete_to_existing", False) and keep_mode != KEEP_ORIGINAL_ALWAYS:
+            self._add_badge(badges_row, "⚠️ Deletes Processed PNGs", "#fef2f2", "#b91c1c", "#fca5a5")
 
         # Quality Badge
         quality = rule.get("jpg_quality", 90)

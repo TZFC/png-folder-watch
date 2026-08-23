@@ -9,10 +9,25 @@ import argparse
 import ctypes
 from typing import Optional
 
-from .config import ConfigManager
-from .gui import show_config_gui
-from .tray import TrayApp
-from .startup import is_startup_enabled, set_startup
+# Ensure project root directory is in sys.path and is the active working directory
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if APP_DIR not in sys.path:
+    sys.path.insert(0, APP_DIR)
+try:
+    os.chdir(APP_DIR)
+except Exception:
+    pass
+
+if __package__ in (None, ""):
+    from src.config import ConfigManager
+    from src.gui import show_config_gui
+    from src.tray import TrayApp
+    from src.startup import is_startup_enabled, set_startup, sync_startup_with_config
+else:
+    from .config import ConfigManager
+    from .gui import show_config_gui
+    from .tray import TrayApp
+    from .startup import is_startup_enabled, set_startup, sync_startup_with_config
 
 
 def is_already_running(mutex_name: str = "PNGFolderWatch_SingleInstance_Mutex") -> bool:
@@ -37,9 +52,8 @@ def main():
 
     config_manager = ConfigManager()
 
-    # Ensure Windows startup shortcut is registered so app runs in background
-    if not is_startup_enabled():
-        set_startup(True)
+    # Synchronize Windows startup (Registry Run key + shortcut) with config setting
+    sync_startup_with_config(config_manager)
 
     already_running = is_already_running()
 
@@ -68,3 +82,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

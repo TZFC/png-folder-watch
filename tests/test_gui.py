@@ -62,6 +62,34 @@ class TestGUISmoke(unittest.TestCase):
         app.destroy()
 
 
+    def test_gui_window_dimensions(self):
+        app = ConfigApp(self.cm)
+        app.update()
+        min_w, min_h = app.minsize()
+        self.assertGreaterEqual(min_w, 860)
+        self.assertGreaterEqual(min_h, 580)
+        app.destroy()
+
+    def test_startup_lifecycle(self):
+        from src.startup import enable_startup, disable_startup, is_startup_enabled, sync_startup_with_config
+        # Enable startup
+        self.cm.start_with_windows = True
+        res = sync_startup_with_config(self.cm)
+        self.assertTrue(res)
+        self.assertTrue(is_startup_enabled())
+
+        # Disable startup
+        self.cm.start_with_windows = False
+        res2 = sync_startup_with_config(self.cm)
+        self.assertTrue(res2)
+        self.assertFalse(is_startup_enabled())
+
+        # Re-enable to restore user preference
+        self.cm.start_with_windows = True
+        sync_startup_with_config(self.cm)
+        self.assertTrue(is_startup_enabled())
+
+
 if __name__ == "__main__":
     unittest.main()
 

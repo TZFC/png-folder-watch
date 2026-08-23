@@ -8,10 +8,12 @@ import os
 import threading
 import time
 from typing import Dict, Any, Callable, Optional, Set
+from PIL import Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from .converter import convert_png_to_jpg, compute_target_path
+from .converter import convert_png_to_jpg, compute_target_path, has_alpha_channel
+from .config import KEEP_ORIGINAL_ALWAYS, KEEP_ORIGINAL_NEVER, KEEP_ORIGINAL_DELETE_NO_ALPHA
 
 
 class PNGEventHandler(FileSystemEventHandler):
@@ -97,15 +99,18 @@ class WatcherManager:
         self._paused = False
 
     def process_existing_files(self, rule: Dict[str, Any]):
-        """Scan folder and convert unconverted existing PNG files."""
+        """Scan folder and convert unconverted existing PNG files, or delete existing PNGs if requested."""
         watch_folder = rule.get("watch_folder", "")
         if not watch_folder or not os.path.exists(watch_folder):
             return
 
         output_mode = rule.get("output_mode", "same_folder")
+        keep_original = rule.get("keep_original", KEEP_ORIGINAL_ALWAYS)
+        apply_delete_to_existing = rule.get("apply_delete_to_existing", False)
 
         def scan_task():
             count = 0
+            deleted_existing_count = 0
             for root, _, files in os.walk(watch_folder):
                 for f in files:
                     if f.lower().endswith(".png"):
@@ -116,6 +121,27 @@ class WatcherManager:
                         if os.path.exists(target_path):
                             try:
                                 if os.path.getmtime(target_path) >= os.path.getmtime(png_path):
+                                    # Target JPG already exists and is up to date
+                                    if apply_delete_to_existing and keep_original != KEEP_ORIGINAL_ALWAYS:
+                                        should_delete = False
+                                        if keep_original == KEEP_ORIGINAL_NEVER:
+                                            should_delete = True
+                                        elif keep_original == KEEP_ORIGINAL_DELETE_NO_ALPHA:
+                                            try:
+                                                with Image.open(png_path) as img:
+                                                    if not has_alpha_channel(img):
+                                                        should_delete = True
+                                            except Exception as e:
+                                                print(f"[Watcher] Error reading {png_path}: {e}")
+
+                                        if should_delete:
+                                            try:
+                                                os.remove(png_path)
+                                                deleted_existing_count += 1
+                                                if self.on_converted:
+                                                    self.on_converted(rule, png_path, target_path, True)
+                                            except Exception as e:
+                                                print(f"[Watcher] Could not delete existing PNG {png_path}: {e}")
                                     continue
                             except OSError:
                                 pass
@@ -125,8 +151,11 @@ class WatcherManager:
                             count += 1
                             if self.on_converted:
                                 self.on_converted(rule, png_path, tgt, deleted)
-            if count > 0:
-                print(f"[Watcher:{rule.get('name')}] Converted {count} existing PNG(s)")
+            if count > 0 or deleted_existing_count > 0:
+                print(
+                    f"[Watcher:{rule.get('name')}] Converted {count} existing PNG(s), "
+                    f"deleted {deleted_existing_count} existing processed PNG(s)"
+                )
 
         t = threading.Thread(target=scan_task, daemon=True)
         t.start()

@@ -169,6 +169,51 @@ class TestConverter(unittest.TestCase):
         self.assertIn("jpg-WatchedFolder", target_path)
         self.assertIn(os.path.join("game_sub", "sub2"), target_path)
 
+    def test_process_existing_preserves_already_converted_by_default(self):
+        png_path = os.path.join(self.watch_root, "existing1.png")
+        self._create_test_png(png_path, "RGB")
+        jpg_path = os.path.join(self.watch_root, "existing1.jpg")
+        self._create_test_png(jpg_path, "RGB")  # pre-existing jpg
+
+        rule = create_default_rule(self.watch_root)
+        rule["keep_original"] = KEEP_ORIGINAL_NEVER
+        rule["apply_delete_to_existing"] = False
+
+        wm = WatcherManager()
+        wm.process_existing_files(rule)
+        import time
+        time.sleep(0.5)
+
+        self.assertTrue(os.path.exists(png_path), "Previously converted PNG should NOT be deleted by default")
+        self.assertTrue(os.path.exists(jpg_path), "JPG should remain")
+
+    def test_process_existing_apply_delete_to_existing(self):
+        # 1. Opaque PNG with pre-existing JPG -> should be deleted when apply_delete_to_existing=True
+        png_path = os.path.join(self.watch_root, "del_existing.png")
+        self._create_test_png(png_path, "RGBA", with_transparency=False)
+        jpg_path = os.path.join(self.watch_root, "del_existing.jpg")
+        self._create_test_png(jpg_path, "RGB")
+
+        # 2. Transparent PNG with pre-existing JPG -> should be KEPT when delete_if_no_alpha
+        trans_png_path = os.path.join(self.watch_root, "trans_existing.png")
+        self._create_test_png(trans_png_path, "RGBA", with_transparency=True)
+        trans_jpg_path = os.path.join(self.watch_root, "trans_existing.jpg")
+        self._create_test_png(trans_jpg_path, "RGB")
+
+        rule = create_default_rule(self.watch_root)
+        rule["keep_original"] = KEEP_ORIGINAL_DELETE_NO_ALPHA
+        rule["apply_delete_to_existing"] = True
+
+        wm = WatcherManager()
+        wm.process_existing_files(rule)
+        import time
+        time.sleep(0.5)
+
+        self.assertFalse(os.path.exists(png_path), "Opaque processed PNG should be deleted when apply_delete_to_existing is True")
+        self.assertTrue(os.path.exists(jpg_path), "JPG should remain")
+        self.assertTrue(os.path.exists(trans_png_path), "Transparent PNG must be kept even if apply_delete_to_existing is True")
+        self.assertTrue(os.path.exists(trans_jpg_path), "Transparent JPG should remain")
+
 
 class TestConfigManager(unittest.TestCase):
 
