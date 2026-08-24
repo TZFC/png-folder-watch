@@ -7,7 +7,8 @@ handles debouncing, and triggers conversion.
 import os
 import threading
 import time
-from typing import Dict, Any, Callable, Optional, Set
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Any, Callable, Optional
 from PIL import Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
@@ -66,9 +67,8 @@ class PNGEventHandler(FileSystemEventHandler):
             if success and self.on_converted:
                 self.on_converted(self.rule, path, target_path, deleted)
 
-        # Run in separate thread so watchdog observer isn't blocked
-        t = threading.Thread(target=task, daemon=True)
-        t.start()
+        # Submit to the shared thread pool to prevent unbounded thread creation
+        _conversion_pool.submit(task)
 
     def on_created(self, event: FileSystemEvent):
         if not event.is_directory:
@@ -77,6 +77,11 @@ class PNGEventHandler(FileSystemEventHandler):
     def on_moved(self, event: FileSystemEvent):
         if not event.is_directory and hasattr(event, "dest_path"):
             self._handle_event(event.dest_path)
+
+
+# Shared thread pool for conversion and scan tasks — limits concurrency and prevents
+# unbounded thread creation when many file events arrive at once.
+_conversion_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="png-conv")
 
 
 class WatcherManager:
@@ -157,8 +162,7 @@ class WatcherManager:
                     f"deleted {deleted_existing_count} existing processed PNG(s)"
                 )
 
-        t = threading.Thread(target=scan_task, daemon=True)
-        t.start()
+        _conversion_pool.submit(scan_task)
 
     def start_rule(self, rule: Dict[str, Any]) -> bool:
         """Start watching folder for a single rule."""
@@ -212,7 +216,9 @@ class WatcherManager:
             obs = self._observers.pop(rule_id)
             try:
                 obs.stop()
-                obs.join(timeout=2.0)
+                # Only join if the thread was actually started
+                if obs.is_alive():
+                    obs.join(timeout=2.0)
             except Exception as e:
                 print(f"[WatcherManager] Error stopping observer: {e}")
 
@@ -231,7 +237,9 @@ class WatcherManager:
             for rule_id, obs in list(self._observers.items()):
                 try:
                     obs.stop()
-                    obs.join(timeout=1.5)
+                    # Only join if the thread was actually started
+                    if obs.is_alive():
+                        obs.join(timeout=1.5)
                 except Exception:
                     pass
             self._observers.clear()

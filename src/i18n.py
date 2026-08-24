@@ -5,9 +5,8 @@ Provides seamless language toggling, system locale auto-detection,
 and localized strings for GUI, dialogs, cards, badges, tray, and notifications.
 """
 
-import os
-import sys
-from typing import Dict, Any, Optional, List, Tuple
+import threading
+from typing import Dict, List, Tuple
 
 LANG_ZH_CN = "zh-CN"
 LANG_EN_US = "en-US"
@@ -256,7 +255,18 @@ def detect_system_language() -> str:
     """
     try:
         import locale
-        lang, _ = locale.getdefaultlocale()
+        # locale.getdefaultlocale() is deprecated since Python 3.11 and removed in 3.15.
+        # Use locale.getlocale() with a fallback.
+        try:
+            lang, _ = locale.getlocale()
+        except Exception:
+            lang = None
+        if not lang:
+            # Fallback: try getdefaultlocale if still available (Python < 3.15)
+            try:
+                lang, _ = locale.getdefaultlocale()  # type: ignore[attr-defined]
+            except (AttributeError, Exception):
+                lang = None
         if lang and (lang.lower().startswith("zh") or "chinese" in lang.lower() or "china" in lang.lower()):
             return LANG_ZH_CN
     except Exception:
@@ -277,23 +287,25 @@ def detect_system_language() -> str:
     return LANG_EN_US
 
 
-_CURRENT_LANGUAGE: str = detect_system_language()
+_CURRENT_LANGUAGE: str = LANG_ZH_CN
+_LANG_LOCK = threading.Lock()
 
 
 def get_language() -> str:
     """Get the currently active language code."""
-    global _CURRENT_LANGUAGE
-    return _CURRENT_LANGUAGE
+    with _LANG_LOCK:
+        return _CURRENT_LANGUAGE
 
 
 def set_language(lang: str) -> str:
     """Set the active language code (must be in SUPPORTED_LANGUAGES)."""
     global _CURRENT_LANGUAGE
-    if lang in SUPPORTED_LANGUAGES:
-        _CURRENT_LANGUAGE = lang
-    else:
-        _CURRENT_LANGUAGE = LANG_ZH_CN
-    return _CURRENT_LANGUAGE
+    with _LANG_LOCK:
+        if lang in SUPPORTED_LANGUAGES:
+            _CURRENT_LANGUAGE = lang
+        else:
+            _CURRENT_LANGUAGE = LANG_ZH_CN
+        return _CURRENT_LANGUAGE
 
 
 def toggle_language() -> str:

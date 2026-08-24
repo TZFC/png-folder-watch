@@ -6,12 +6,10 @@ and seamless language toggling between Simplified Chinese (zh-CN) and English (e
 """
 
 import os
-import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import Dict, Any, Optional, Callable, List
-from PIL import Image, ImageTk
 
 from .config import (
     ConfigManager,
@@ -19,28 +17,24 @@ from .config import (
     OUTPUT_MODE_SAME,
     OUTPUT_MODE_JPG_SUB,
     OUTPUT_MODE_MIRROR,
-    OUTPUT_MODES,
     KEEP_ORIGINAL_ALWAYS,
     KEEP_ORIGINAL_NEVER,
     KEEP_ORIGINAL_DELETE_NO_ALPHA,
-    KEEP_ORIGINAL_MODES,
     WATCH_MODE_ALWAYS,
     WATCH_MODE_ON_APP,
-    WATCH_MODES,
 )
 from .i18n import (
     t,
-    get_language,
     set_language,
     toggle_language,
     get_localized_output_modes,
     get_localized_keep_original_modes,
     get_localized_watch_modes,
-    LANG_ZH_CN,
-    LANG_EN_US,
 )
-from .startup import is_startup_enabled, set_startup
-from .icon_generator import ensure_icon_files, ICON_PNG_PATH, ICON_ICO_PATH
+from .startup import set_startup
+
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ICON_ICO_PATH = os.path.join(APP_DIR, "assets", "icon.ico")
 
 # Enable high DPI awareness on Windows
 try:
@@ -121,6 +115,11 @@ class ModernOptionCard(tk.Frame):
         self.update_state()
 
     def _on_hover(self, is_hover: bool):
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
         if self.variable.get() != self.value:
             bg = "#f8fafc" if is_hover else "#ffffff"
             border = "#cbd5e1" if is_hover else "#e2e8f0"
@@ -130,6 +129,11 @@ class ModernOptionCard(tk.Frame):
             self.lbl_desc.config(bg=bg)
 
     def select(self):
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
         self.variable.set(self.value)
         if self.on_select:
             self.on_select(self.value)
@@ -139,6 +143,11 @@ class ModernOptionCard(tk.Frame):
                 child.update_state()
 
     def update_state(self):
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
         is_selected = (self.variable.get() == self.value)
         if is_selected:
             self.config(bg="#eff6ff", highlightbackground="#3b82f6", highlightthickness=2)
@@ -178,7 +187,6 @@ class RuleEditorDialog(tk.Toplevel):
         self.minsize(680, 640)
         self.config(bg="#f8fafc")
 
-        ensure_icon_files()
         if os.path.exists(ICON_ICO_PATH):
             try:
                 self.iconbitmap(ICON_ICO_PATH)
@@ -709,7 +717,6 @@ class ConfigApp(tk.Tk):
         self.minsize(860, 580)
         self.config(bg="#f8fafc")
 
-        ensure_icon_files()
         if os.path.exists(ICON_ICO_PATH):
             try:
                 self.iconbitmap(ICON_ICO_PATH)

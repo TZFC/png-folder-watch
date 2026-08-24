@@ -7,8 +7,6 @@ import os
 import sys
 import argparse
 import ctypes
-from typing import Optional
-
 # Ensure project root directory is in sys.path and is the active working directory
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if APP_DIR not in sys.path:
@@ -22,17 +20,22 @@ if __package__ in (None, ""):
     from src.config import ConfigManager
     from src.gui import show_config_gui
     from src.tray import TrayApp
-    from src.startup import is_startup_enabled, set_startup, sync_startup_with_config
+    from src.startup import sync_startup_with_config
 else:
     from .config import ConfigManager
     from .gui import show_config_gui
     from .tray import TrayApp
-    from .startup import is_startup_enabled, set_startup, sync_startup_with_config
+    from .startup import sync_startup_with_config
 
 
 def is_already_running(mutex_name: str = "PNGFolderWatch_SingleInstance_Mutex") -> bool:
     """Check if another instance of PNG Folder Watch is currently active."""
     try:
+        # Set proper return types to prevent 64-bit handle truncation
+        ctypes.windll.kernel32.CreateMutexW.restype = ctypes.c_void_p
+        ctypes.windll.kernel32.CreateMutexW.argtypes = [
+            ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p
+        ]
         mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
         last_error = ctypes.windll.kernel32.GetLastError()
         ERROR_ALREADY_EXISTS = 183

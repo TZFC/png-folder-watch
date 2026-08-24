@@ -5,9 +5,11 @@ Handles loading, saving, validating rules and global app settings.
 
 import json
 import os
-import sys
+import threading
 import uuid
 from typing import Dict, List, Any, Optional
+
+from .i18n import set_language, LANG_ZH_CN
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CONFIG_PATH = os.path.join(APP_DIR, "config.json")
@@ -84,21 +86,16 @@ def create_default_rule(folder_path: str = "") -> Dict[str, Any]:
     }
 
 
-from .i18n import detect_system_language, set_language, get_language, LANG_ZH_CN, LANG_EN_US
-
-
 def get_default_config() -> Dict[str, Any]:
     """Return default global configuration."""
     return {
         "version": 3,
-        "language": detect_system_language(),
+        "language": LANG_ZH_CN,
         "start_with_windows": True,
         "notify_on_convert": True,
         "rules": [],
     }
 
-
-import threading
 
 class ConfigManager:
     """Manages application settings and rules."""
@@ -124,6 +121,10 @@ class ConfigManager:
                     data = json.load(f)
                     merged = get_default_config()
                     merged.update(data)
+                    # Validate critical fields to guard against corrupted config
+                    if not isinstance(merged.get("rules"), list):
+                        print("[ConfigManager] Invalid 'rules' in config, resetting to empty list.")
+                        merged["rules"] = []
                     return merged
             except Exception as e:
                 print(f"[ConfigManager] Error reading config: {e}")
@@ -144,7 +145,7 @@ class ConfigManager:
     @property
     def language(self) -> str:
         with self._lock:
-            return self.data.get("language", detect_system_language())
+            return self.data.get("language", LANG_ZH_CN)
 
     @language.setter
     def language(self, value: str):

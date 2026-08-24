@@ -263,6 +263,11 @@ class TestConfigManager(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    def test_default_language_is_zh_cn(self):
+        new_config_file = os.path.join(self.temp_dir, "new_default_config.json")
+        cm = ConfigManager(new_config_file)
+        self.assertEqual(cm.language, "zh-CN")
+
     def test_add_and_update_rule(self):
         rule = create_default_rule("C:\\Screenshots")
         rule_id = self.cm.add_rule(rule)

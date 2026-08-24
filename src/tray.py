@@ -6,18 +6,19 @@ status menus, pause/resume, quick folder access, and notification toasts.
 
 import os
 import threading
-import time
 from typing import Optional
 from PIL import Image
 import pystray
 from pystray import MenuItem as item, Menu
 
-from .config import ConfigManager, WATCH_MODE_ALWAYS, WATCH_MODE_ON_APP
-from .i18n import t, get_language, set_language
+from .config import ConfigManager, WATCH_MODE_ALWAYS
+from .i18n import t, set_language
 from .watcher import WatcherManager
 from .process_monitor import ProcessMonitor
-from .icon_generator import create_app_icon, ensure_icon_files, ICON_PNG_PATH
 from .gui import show_config_gui, get_active_gui
+
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ICON_PNG_PATH = os.path.join(APP_DIR, "assets", "icon.png")
 
 
 class TrayApp:
@@ -41,14 +42,13 @@ class TrayApp:
         self.process_monitor.start()
 
         # Prepare tray icon image
-        ensure_icon_files()
         if os.path.exists(ICON_PNG_PATH):
             try:
                 icon_img = Image.open(ICON_PNG_PATH)
             except Exception:
-                icon_img = create_app_icon(64)
+                icon_img = Image.new("RGBA", (64, 64), (37, 99, 235, 255))
         else:
-            icon_img = create_app_icon(64)
+            icon_img = Image.new("RGBA", (64, 64), (37, 99, 235, 255))
 
         # Build tray menu with dynamic localized labels
         menu = Menu(
@@ -196,6 +196,13 @@ class TrayApp:
     def _on_exit(self, icon=None, item=None):
         """Clean shutdown."""
         print("[TrayApp] Shutting down...")
+        # Close settings GUI if still open to prevent hang
+        active_gui = get_active_gui()
+        if active_gui is not None:
+            try:
+                active_gui.after(0, active_gui.destroy)
+            except Exception:
+                pass
         self.watcher_manager.stop_all()
         self.process_monitor.stop()
         if self.icon:

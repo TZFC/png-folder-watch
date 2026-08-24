@@ -7,11 +7,9 @@ and the Windows Startup folder shortcut to ensure 100% reliable, silent backgrou
 import os
 import subprocess
 import sys
-from typing import Optional
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN_SCRIPT_PATH = os.path.join(APP_DIR, "src", "main.py")
-BAT_PATH = os.path.join(APP_DIR, "PNGWatch.bat")
 REG_KEY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_VALUE_NAME = "PNGFolderWatch"
 STARTUP_FOLDER = os.path.join(
@@ -100,12 +98,17 @@ def enable_startup() -> bool:
         working_dir = os.path.abspath(APP_DIR)
 
         import base64
+        # Escape single quotes for PowerShell string literals ('' is the escape sequence)
+        esc_shortcut = SHORTCUT_PATH.replace("'", "''")
+        esc_py_exe = py_exe.replace("'", "''")
+        esc_main_script = MAIN_SCRIPT_PATH.replace("'", "''")
+        esc_working_dir = working_dir.replace("'", "''")
         ps_cmd = f"""
 $ws = New-Object -ComObject WScript.Shell
-$s = $ws.CreateShortcut('{SHORTCUT_PATH}')
-$s.TargetPath = '{py_exe}'
-$s.Arguments = '"{MAIN_SCRIPT_PATH}"'
-$s.WorkingDirectory = '{working_dir}'
+$s = $ws.CreateShortcut('{esc_shortcut}')
+$s.TargetPath = '{esc_py_exe}'
+$s.Arguments = '"{esc_main_script}"'
+$s.WorkingDirectory = '{esc_working_dir}'
 $s.Description = 'PNG Folder Watch background service'
 $s.WindowStyle = 7
 $s.Save()
