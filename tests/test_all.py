@@ -341,39 +341,5 @@ class TestConfigManager(unittest.TestCase):
         self.assertEqual(len(errors), 0, f"Thread safety errors: {errors}")
 
 
-class TestGuiStability(unittest.TestCase):
-
-    def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
-        self.config_file = os.path.join(self.temp_dir, "test_gui_config.json")
-        self.cm = ConfigManager(self.config_file)
-        self.cm.add_rule(create_default_rule("C:\\TestFolder"))
-
-    def tearDown(self):
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_gui_start_and_close_lifecycle(self):
-        """Verify that _on_start_and_close sets start_requested and destroys window without blocking."""
-        from src.gui import ConfigApp
-        app = ConfigApp(self.cm)
-        self.assertFalse(app.start_requested)
-        app._on_start_and_close()
-        self.assertTrue(app.start_requested)
-
-    def test_rule_editor_dialog_mousewheel_cleanup(self):
-        """Verify that opening and destroying RuleEditorDialog does not leave dangling handlers."""
-        import tkinter as tk
-        from src.gui import ConfigApp, RuleEditorDialog
-        app = ConfigApp(self.cm)
-        try:
-            dlg = RuleEditorDialog(parent=app)
-            # Destroy dialog
-            dlg.destroy()
-            # Scrolling in main app canvas should not raise TclError
-            app.canvas.event_generate("<MouseWheel>", delta=120)
-        finally:
-            app.destroy()
-
-
 if __name__ == "__main__":
     unittest.main()

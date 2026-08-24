@@ -8,7 +8,7 @@
 
 ## ✨ Key Features
 
-- **🌐 Bilingual UI & Instant Language Toggle**: Full localization for both Simplified Chinese (`zh-CN`) and English (`en-US`). Auto-detects Windows system language and features a one-click header toggle button `[ 🌐 English / 简体中文 ]` with instant live re-rendering.
+- **🌐 Bilingual UI & Instant Language Toggle**: Defaults to Simplified Chinese (`zh-CN`) with full English (`en-US`) support and one-click toggle `[ 🌐 English / 简体中文 ]` with instant live re-rendering.
 - **🇨🇳 100% Unicode & Chinese Path Support**: Complete resilience for folders and filenames containing Chinese characters, spaces, and non-ASCII symbols.
 - **🎨 Modernized Desktop UI**: Sleek dark-slate hero header, interactive selectable option cards, live quality sliders, status badges, and path chips.
 - **🛡️ 100% Constrained Choices (Zero Typing Required)**: Every setting uses native Windows folder/file path finders, interactive option cards, sliders, or checkboxes.
@@ -82,7 +82,6 @@ png-folder-watch/
 │   ├── gui.py              # Modern Tkinter configuration GUI with language toggle
 │   ├── tray.py             # Pystray Windows system tray controller
 │   ├── startup.py          # Windows Startup shortcut manager
-│   ├── icon_generator.py   # Icon graphics generator
 │   └── main.py             # Application entry point & single-instance lock
 └── tests/
     ├── test_all.py          # Core unit & Chinese path conversion tests

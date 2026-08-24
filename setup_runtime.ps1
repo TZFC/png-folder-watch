@@ -2,6 +2,7 @@
 # Downloads standalone portable Python runtime and installs dependencies
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RuntimeDir = Join-Path $ScriptDir "runtime"
 $PythonExe = Join-Path $RuntimeDir "python.exe"
@@ -10,6 +11,66 @@ $PythonwExe = Join-Path $RuntimeDir "pythonw.exe"
 function Write-Step {
     param([string]$Message)
     Write-Host "[$([DateTime]::Now.ToString('HH:mm:ss'))] $Message" -ForegroundColor Cyan
+}
+
+function Download-FileWithProgress {
+    param (
+        [string]$DownloadUrl,
+        [string]$DestinationPath
+    )
+
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+    $request = [System.Net.HttpWebRequest]::Create($DownloadUrl)
+    $request.Timeout = 120000
+    $request.UserAgent = "PNGFolderWatch-Setup"
+    $response = $request.GetResponse()
+    $totalBytes = $response.ContentLength
+    $responseStream = $response.GetResponseStream()
+    $targetStream = [System.IO.File]::Create($DestinationPath)
+
+    $buffer = New-Object byte[] 65536
+    $downloadedBytes = 0
+    $lastUpdate = [DateTime]::MinValue
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+    try {
+        while (($bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $targetStream.Write($buffer, 0, $bytesRead)
+            $downloadedBytes += $bytesRead
+
+            $now = [DateTime]::Now
+            if (($now - $lastUpdate).TotalMilliseconds -ge 100 -or $downloadedBytes -eq $totalBytes) {
+                $lastUpdate = $now
+                $elapsedSec = [Math]::Max(0.01, $sw.Elapsed.TotalSeconds)
+                $speedMBps = [Math]::Round(($downloadedBytes / 1MB) / $elapsedSec, 2)
+
+                if ($totalBytes -gt 0) {
+                    $percent = [Math]::Min(100, [int](($downloadedBytes / $totalBytes) * 100))
+                    $downloadedMB = [Math]::Round($downloadedBytes / 1MB, 1)
+                    $totalMB = [Math]::Round($totalBytes / 1MB, 1)
+                    
+                    # 30-char visual progress bar: [████████████░░░░░░░░░] 60%  28.0 / 46.2 MB (9.5 MB/s)
+                    $barWidth = 30
+                    $filled = [Math]::Min($barWidth, [Math]::Max(0, [int]($barWidth * ($percent / 100))))
+                    $empty = $barWidth - $filled
+                    $barStr = [string]::new([char]0x2588, $filled) + [string]::new([char]0x2591, $empty)
+                    
+                    $statusText = "`r  [$barStr] $percent%  $downloadedMB / $totalMB MB ($speedMBps MB/s)    "
+                    Write-Host -NoNewline $statusText -ForegroundColor Cyan
+                } else {
+                    $downloadedMB = [Math]::Round($downloadedBytes / 1MB, 1)
+                    Write-Host -NoNewline "`r  $downloadedMB MB downloaded ($speedMBps MB/s)    " -ForegroundColor Cyan
+                }
+            }
+        }
+        Write-Host ""
+    }
+    finally {
+        $sw.Stop()
+        if ($targetStream) { $targetStream.Dispose() }
+        if ($responseStream) { $responseStream.Dispose() }
+        if ($response) { $response.Dispose() }
+    }
 }
 
 if (Test-Path $PythonExe) {
@@ -27,9 +88,8 @@ $TarGz = Join-Path $ScriptDir "python_standalone.tar.gz"
 $PythonUrl = "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.11.16%2B20260814-x86_64-pc-windows-msvc-install_only.tar.gz"
 
 try {
-    Write-Step "Downloading self-contained Python runtime..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $PythonUrl -OutFile $TarGz -UseBasicParsing
+    Write-Step "Downloading self-contained Python runtime package..."
+    Download-FileWithProgress -DownloadUrl $PythonUrl -DestinationPath $TarGz -Activity "Downloading Python runtime"
 
     Write-Step "Extracting runtime..."
     tar -xzf $TarGz -C $ScriptDir

@@ -6,6 +6,7 @@ and seamless language toggling between Simplified Chinese (zh-CN) and English (e
 """
 
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -746,6 +747,13 @@ class ConfigApp(tk.Tk):
         x = (sw - w) // 2
         y = (sh - h) // 2
         self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        try:
+            self.lift()
+            self.attributes("-topmost", True)
+            self.after_idle(self.attributes, "-topmost", False)
+            self.focus_force()
+        except Exception:
+            pass
 
     def _build_ui(self):
         # ----------------------------------------------------

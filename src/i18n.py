@@ -251,7 +251,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 def detect_system_language() -> str:
     """
     Detect the user's Windows operating system or user locale.
-    Returns 'zh-CN' if Chinese locale is detected, otherwise 'en-US'.
+    Defaults to 'zh-CN'.
     """
     try:
         import locale
@@ -267,6 +267,8 @@ def detect_system_language() -> str:
                 lang, _ = locale.getdefaultlocale()  # type: ignore[attr-defined]
             except (AttributeError, Exception):
                 lang = None
+        if lang and (lang.lower().startswith("en") or "english" in lang.lower()):
+            return LANG_EN_US
         if lang and (lang.lower().startswith("zh") or "chinese" in lang.lower() or "china" in lang.lower()):
             return LANG_ZH_CN
     except Exception:
@@ -277,14 +279,16 @@ def detect_system_language() -> str:
         windll = getattr(ctypes, "windll", None)
         if windll:
             # Primary language identifier (bottom 10 bits of LANGID)
-            # 0x04 is LANG_CHINESE
+            # 0x09 is LANG_ENGLISH, 0x04 is LANG_CHINESE
             lang_id = windll.kernel32.GetUserDefaultUILanguage() & 0x3FF
+            if lang_id == 0x09:
+                return LANG_EN_US
             if lang_id == 0x04:
                 return LANG_ZH_CN
     except Exception:
         pass
 
-    return LANG_EN_US
+    return LANG_ZH_CN
 
 
 _CURRENT_LANGUAGE: str = LANG_ZH_CN
