@@ -17,7 +17,7 @@ from .i18n import t, get_language, set_language
 from .watcher import WatcherManager
 from .process_monitor import ProcessMonitor
 from .icon_generator import create_app_icon, ensure_icon_files, ICON_PNG_PATH
-from .gui import show_config_gui
+from .gui import show_config_gui, get_active_gui
 
 
 class TrayApp:
@@ -164,11 +164,24 @@ class TrayApp:
 
     def _on_open_settings(self, icon=None, item=None):
         """Open settings GUI in a thread so tray remains responsive."""
+        active_gui = get_active_gui()
+        if active_gui is not None:
+            try:
+                active_gui.deiconify()
+                active_gui.lift()
+                active_gui.focus_force()
+                return
+            except Exception:
+                pass
+
         if self._gui_thread and self._gui_thread.is_alive():
             return
 
         def run_gui():
-            show_config_gui(self.config_manager, on_start_callback=self._on_settings_saved)
+            try:
+                show_config_gui(self.config_manager, on_start_callback=self._on_settings_saved)
+            except Exception as e:
+                print(f"[TrayApp] Error in settings GUI thread: {e}")
 
         self._gui_thread = threading.Thread(target=run_gui, daemon=True)
         self._gui_thread.start()

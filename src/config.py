@@ -98,17 +98,26 @@ def get_default_config() -> Dict[str, Any]:
     }
 
 
+import threading
+
 class ConfigManager:
     """Manages application settings and rules."""
 
     def __init__(self, config_path: Optional[str] = None):
+        self._lock = threading.RLock()
         self.config_path = config_path or get_config_path()
-        self.data = self.load()
+        with self._lock:
+            self.data = self._load_unlocked()
         # Synchronize active i18n language
         set_language(self.language)
 
     def load(self) -> Dict[str, Any]:
         """Load configuration from disk or return default."""
+        with self._lock:
+            self.data = self._load_unlocked()
+            return self.data.copy()
+
+    def _load_unlocked(self) -> Dict[str, Any]:
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
@@ -122,74 +131,90 @@ class ConfigManager:
 
     def save(self) -> bool:
         """Save configuration to disk."""
-        try:
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, indent=2, ensure_ascii=False)
-            return True
-        except Exception as e:
-            print(f"[ConfigManager] Error saving config: {e}")
-            return False
+        with self._lock:
+            try:
+                os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+                with open(self.config_path, "w", encoding="utf-8") as f:
+                    json.dump(self.data, f, indent=2, ensure_ascii=False)
+                return True
+            except Exception as e:
+                print(f"[ConfigManager] Error saving config: {e}")
+                return False
 
     @property
     def language(self) -> str:
-        return self.data.get("language", detect_system_language())
+        with self._lock:
+            return self.data.get("language", detect_system_language())
 
     @language.setter
     def language(self, value: str):
-        self.data["language"] = value
+        with self._lock:
+            self.data["language"] = value
         set_language(value)
 
     @property
     def rules(self) -> List[Dict[str, Any]]:
-        return self.data.setdefault("rules", [])
+        with self._lock:
+            # Return a list of rule dict copies to avoid concurrent mutation issues during iteration
+            return [r.copy() for r in self.data.setdefault("rules", [])]
 
     @property
     def start_with_windows(self) -> bool:
-        return self.data.get("start_with_windows", True)
+        with self._lock:
+            return self.data.get("start_with_windows", True)
 
     @start_with_windows.setter
     def start_with_windows(self, value: bool):
-        self.data["start_with_windows"] = bool(value)
+        with self._lock:
+            self.data["start_with_windows"] = bool(value)
 
     @property
     def notify_on_convert(self) -> bool:
-        return self.data.get("notify_on_convert", True)
+        with self._lock:
+            return self.data.get("notify_on_convert", True)
 
     @notify_on_convert.setter
     def notify_on_convert(self, value: bool):
-        self.data["notify_on_convert"] = bool(value)
+        with self._lock:
+            self.data["notify_on_convert"] = bool(value)
 
     def add_rule(self, rule: Dict[str, Any]) -> str:
         """Add a rule and return its ID."""
-        if "id" not in rule or not rule["id"]:
-            rule["id"] = str(uuid.uuid4())
-        self.rules.append(rule)
-        self.save()
-        return rule["id"]
+        with self._lock:
+            rule_copy = rule.copy()
+            if "id" not in rule_copy or not rule_copy["id"]:
+                rule_copy["id"] = str(uuid.uuid4())
+            self.data.setdefault("rules", []).append(rule_copy)
+            self.save()
+            return rule_copy["id"]
 
     def update_rule(self, rule_id: str, updated_rule: Dict[str, Any]) -> bool:
         """Update an existing rule by ID."""
-        for i, r in enumerate(self.rules):
-            if r.get("id") == rule_id:
-                updated_rule["id"] = rule_id
-                self.rules[i] = updated_rule
-                self.save()
-                return True
-        return False
+        with self._lock:
+            rules_list = self.data.setdefault("rules", [])
+            for i, r in enumerate(rules_list):
+                if r.get("id") == rule_id:
+                    new_rule = updated_rule.copy()
+                    new_rule["id"] = rule_id
+                    rules_list[i] = new_rule
+                    self.save()
+                    return True
+            return False
 
     def remove_rule(self, rule_id: str) -> bool:
         """Remove a rule by ID."""
-        initial_len = len(self.rules)
-        self.data["rules"] = [r for r in self.rules if r.get("id") != rule_id]
-        if len(self.data["rules"]) != initial_len:
-            self.save()
-            return True
-        return False
+        with self._lock:
+            initial_len = len(self.data.setdefault("rules", []))
+            self.data["rules"] = [r for r in self.data["rules"] if r.get("id") != rule_id]
+            if len(self.data["rules"]) != initial_len:
+                self.save()
+                return True
+            return False
 
     def get_rule(self, rule_id: str) -> Optional[Dict[str, Any]]:
         """Get rule by ID."""
-        for r in self.rules:
-            if r.get("id") == rule_id:
-                return r
-        return None
+        with self._lock:
+            for r in self.data.setdefault("rules", []):
+                if r.get("id") == rule_id:
+                    return r.copy()
+            return None

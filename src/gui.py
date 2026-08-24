@@ -7,6 +7,7 @@ and seamless language toggling between Simplified Chinese (zh-CN) and English (e
 
 import os
 import sys
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import Dict, Any, Optional, Callable, List
@@ -166,6 +167,7 @@ class RuleEditorDialog(tk.Toplevel):
     ):
         super().__init__(parent)
         self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.grab_set()
         self.on_save = on_save
         self.is_new = rule is None
@@ -257,8 +259,27 @@ class RuleEditorDialog(tk.Toplevel):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception:
+                pass
+
+        def _bind_mousewheel(event):
+            try:
+                canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            except Exception:
+                pass
+
+        def _unbind_mousewheel(event):
+            try:
+                canvas.unbind_all("<MouseWheel>")
+            except Exception:
+                pass
+
+        content_frame.bind("<Enter>", _bind_mousewheel)
+        content_frame.bind("<Leave>", _unbind_mousewheel)
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
 
         # ----------------------------------------------------
         # Section 1: Folder Selection
@@ -653,6 +674,17 @@ class RuleEditorDialog(tk.Toplevel):
             self.on_save(self.rule)
         self.destroy()
 
+    def destroy(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        try:
+            self.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        super().destroy()
+
 
 class ConfigApp(tk.Tk):
     """
@@ -670,6 +702,7 @@ class ConfigApp(tk.Tk):
         self.config_manager = config_manager
         set_language(self.config_manager.language)
         self.on_start_watching = on_start_watching
+        self.start_requested = False
 
         self.title(t("window_title_dashboard"))
         self.geometry("940x700")
@@ -814,8 +847,27 @@ class ConfigApp(tk.Tk):
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            try:
+                self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception:
+                pass
+
+        def _bind_mousewheel(event):
+            try:
+                self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            except Exception:
+                pass
+
+        def _unbind_mousewheel(event):
+            try:
+                self.canvas.unbind_all("<MouseWheel>")
+            except Exception:
+                pass
+
+        list_container.bind("<Enter>", _bind_mousewheel)
+        list_container.bind("<Leave>", _unbind_mousewheel)
+        self.canvas.bind("<Enter>", _bind_mousewheel)
+        self.canvas.bind("<Leave>", _unbind_mousewheel)
 
         # ----------------------------------------------------
         # Bottom Global Settings & Actions Footer
@@ -900,8 +952,7 @@ class ConfigApp(tk.Tk):
             return
 
         self.config_manager.save()
-        if self.on_start_watching:
-            self.on_start_watching()
+        self.start_requested = True
         self.destroy()
 
     def destroy(self):
@@ -911,6 +962,10 @@ class ConfigApp(tk.Tk):
             except Exception:
                 pass
             self._prompt_after_id = None
+        try:
+            self.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
         super().destroy()
 
     def refresh_rules_list(self):
@@ -1143,11 +1198,81 @@ class ConfigApp(tk.Tk):
             self.refresh_rules_list()
 
 
-def show_config_gui(config_manager: Optional[ConfigManager] = None, on_start_callback: Optional[Callable] = None):
-    """Launch the modern configuration GUI."""
+_active_gui_app: Optional[ConfigApp] = None
+_gui_lock = threading.Lock()
+
+
+def get_active_gui() -> Optional[ConfigApp]:
+    """Return the currently open ConfigApp window instance if active."""
+    global _active_gui_app
+    with _gui_lock:
+        if _active_gui_app is not None:
+            try:
+                if _active_gui_app.winfo_exists():
+                    return _active_gui_app
+            except Exception:
+                pass
+            _active_gui_app = None
+        return None
+
+
+def show_config_gui(
+    config_manager: Optional[ConfigManager] = None,
+    on_start_callback: Optional[Callable[[], None]] = None,
+) -> bool:
+    """
+    Launch the modern configuration GUI.
+    Returns True if the user clicked 'Start Watching' / save & start was requested.
+    """
+    global _active_gui_app
+
+    # If GUI is already active, restore and focus it
+    with _gui_lock:
+        if _active_gui_app is not None:
+            try:
+                if _active_gui_app.winfo_exists():
+                    _active_gui_app.deiconify()
+                    _active_gui_app.lift()
+                    _active_gui_app.focus_force()
+                    return False
+            except Exception:
+                pass
+            _active_gui_app = None
+
+    # Initialize COM on current thread for Windows Shell / file dialog safety
+    com_initialized = False
+    try:
+        import ctypes
+        hr = ctypes.windll.ole32.CoInitialize(None)
+        com_initialized = hr in (0, 1)  # S_OK (0) or S_FALSE (1)
+    except Exception:
+        pass
+
     cm = config_manager or ConfigManager()
-    app = ConfigApp(cm, on_start_watching=on_start_callback)
-    app.mainloop()
+    app = ConfigApp(cm, on_start_watching=None)
+    with _gui_lock:
+        _active_gui_app = app
+
+    try:
+        app.mainloop()
+    finally:
+        with _gui_lock:
+            if _active_gui_app is app:
+                _active_gui_app = None
+        if com_initialized:
+            try:
+                ctypes.windll.ole32.CoUninitialize()
+            except Exception:
+                pass
+
+    start_requested = getattr(app, "start_requested", False)
+    if start_requested and on_start_callback:
+        try:
+            on_start_callback()
+        except Exception as e:
+            print(f"[GUI] Error in on_start_callback: {e}")
+
+    return start_requested
 
 
 if __name__ == "__main__":

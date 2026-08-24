@@ -60,13 +60,12 @@ def main():
     # Case 1: First install or explicit configure request or no rules yet
     if args.configure or not config_manager.rules:
         # Show configuration GUI
-        def on_start():
-            # If not already running tray, launch tray
-            if not already_running:
-                tray = TrayApp(config_manager)
-                tray.start()
+        start_requested = show_config_gui(config_manager)
 
-        show_config_gui(config_manager, on_start_callback=on_start)
+        # If not already running tray and start was requested (or rules were configured), launch tray
+        if not already_running and (start_requested or bool(config_manager.rules)):
+            tray = TrayApp(config_manager)
+            tray.start()
         return
 
     # Case 2: Already running in tray and launched again without flags
